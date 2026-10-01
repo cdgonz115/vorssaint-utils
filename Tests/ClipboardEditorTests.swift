@@ -41,6 +41,7 @@ enum ClipboardEditorTests {
         suite.run("clipboard editor history entry") { historyEntry(suite) }
         suite.run("clipboard editor live clipboard") { liveClipboard(suite) }
         suite.run("clipboard editor failures") { failures(suite) }
+        suite.run("clipboard editor preferences") { preferences(suite) }
     }
 
     private static func commit(_ model: ClipboardEditorModel,
@@ -143,5 +144,34 @@ enum ClipboardEditorTests {
         history.copyResult = true
         suite.expect(commit(model, history) == .committed(updatedHistory: true), "a retry succeeds")
         suite.expect(!model.hasChanges, "after a commit the editor has nothing pending")
+    }
+
+    private static func preferences(_ suite: TestSuite) {
+        suite.expect(ClipboardOpenView.resolve(stored: "editor", editorEnabled: true) == .editor,
+                     "the editor can be chosen as the opening view")
+        suite.expect(ClipboardOpenView.resolve(stored: "history", editorEnabled: true) == .history,
+                     "the history can be chosen as the opening view")
+        suite.expect(ClipboardOpenView.resolve(stored: "editor", editorEnabled: false) == .history,
+                     "with the editor switched off, the history opens whatever was chosen")
+        for unknown in [nil, "", "garbage", "Editor", "editor "] {
+            suite.expect(ClipboardOpenView.resolve(stored: unknown, editorEnabled: true) == .history,
+                         "an unknown stored value (\(unknown ?? "nil")) opens the history")
+        }
+
+        let registered = Defaults.registeredDefaults
+        suite.expect(registered[DefaultsKey.clipboardEditorEnabled] as? Bool == true,
+                     "the editor is on by default")
+        suite.expect(registered[DefaultsKey.clipboardEditorDefaultView] as? String
+                        == ClipboardOpenView.history.rawValue,
+                     "the clipboard still opens on the history by default, as it always has")
+
+        let exported = SettingsBackupSupport.exportKeys()
+        suite.expect(exported.contains(DefaultsKey.clipboardEditorEnabled)
+                        && exported.contains(DefaultsKey.clipboardEditorDefaultView),
+                     "both editor settings travel in a backup")
+        suite.expect(SettingsBackupSupport.valueLooksRight(DefaultsKey.clipboardEditorDefaultView, "editor"),
+                     "a restored opening view is accepted")
+        suite.expect(!SettingsBackupSupport.valueLooksRight(DefaultsKey.clipboardEditorEnabled, "yes"),
+                     "a restored switch of the wrong type is dropped")
     }
 }

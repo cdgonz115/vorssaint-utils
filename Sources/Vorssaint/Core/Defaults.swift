@@ -546,6 +546,11 @@ enum DefaultsKey {
     static let clipboardAutoClearOnSleep = "clipboardAutoClearOnSleep"
     static let clipboardAutoClearOnDisplaySleep = "clipboardAutoClearOnDisplaySleep"
     static let clipboardAutoClearOnScreenLock = "clipboardAutoClearOnScreenLock"
+    
+    // Clipboard editor: edit copied text in place; closing puts it back. Its
+    // own family, outside clipboardHistory, since it works with capture off.
+    static let clipboardEditorEnabled = "clipboardEditorEnabled"
+    static let clipboardEditorDefaultView = "clipboardEditorDefaultView" // "history" or "editor"
 
     static let windowPreviewExcludedApps = "windowPreviewExcludedApps" // pause Dock Preview thumbnail capture while these apps are in front (once shared with the app switcher)
     static let switcherPreviewExcludedApps = "switcherPreviewExcludedApps" // pause app switcher thumbnail capture while these apps are in front
@@ -1636,6 +1641,8 @@ enum Defaults {
         DefaultsKey.clipboardHistoryWindowHeight: 0.0,
         DefaultsKey.clipboardHistoryMenuBarPreview: false,
         DefaultsKey.clipboardHistoryMenuBarPreviewLength: Defaults.defaultClipboardMenuBarPreviewLength,
+        DefaultsKey.clipboardEditorEnabled: true,
+        DefaultsKey.clipboardEditorDefaultView: ClipboardOpenView.history.rawValue,
         DefaultsKey.clipboardAutoClearOnDelay: false,
         DefaultsKey.clipboardAutoClearDelay: Defaults.defaultClipboardAutoClearDelay,
         DefaultsKey.clipboardAutoClearOnSleep: false,
