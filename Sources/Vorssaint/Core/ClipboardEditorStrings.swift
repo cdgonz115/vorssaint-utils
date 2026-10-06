@@ -3,7 +3,6 @@
 //  Vorssaint
 //
 //  Created by Christian Gonzalez on 10/1/26.
-//
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Vorssaint
 
@@ -16,6 +15,9 @@ struct ClipboardEditorStrings {
     let defaultViewHistory: String
     let defaultViewEditor: String
     let defaultViewCaption: String
+    let format: String
+    let minify: String
+    let notStructured: String
 }
 
 extension FeatureStrings {
@@ -47,7 +49,10 @@ extension ClipboardEditorStrings {
         defaultView: "Clipboard opens on",
         defaultViewHistory: "History",
         defaultViewEditor: "Editor",
-        defaultViewCaption: "The editor starts with the text on your clipboard right now."
+        defaultViewCaption: "The editor starts with the text on your clipboard right now.",
+        format: "Format",
+        minify: "Minify",
+        notStructured: "Not valid JSON or XML"
     )
 
     static let ptBR = ClipboardEditorStrings(
@@ -56,7 +61,10 @@ extension ClipboardEditorStrings {
         defaultView: "O clipboard abre em",
         defaultViewHistory: "Histórico",
         defaultViewEditor: "Editor",
-        defaultViewCaption: "O editor começa com o texto que está no clipboard agora."
+        defaultViewCaption: "O editor começa com o texto que está no clipboard agora.",
+        format: "Formatar",
+        minify: "Minificar",
+        notStructured: "JSON ou XML inválido"
     )
 
     static let tr = ClipboardEditorStrings(
@@ -65,7 +73,10 @@ extension ClipboardEditorStrings {
         defaultView: "Pano şununla açılır",
         defaultViewHistory: "Geçmiş",
         defaultViewEditor: "Düzenleyici",
-        defaultViewCaption: "Düzenleyici, şu anda panonuzda bulunan metinle başlar."
+        defaultViewCaption: "Düzenleyici, şu anda panonuzda bulunan metinle başlar.",
+        format: "Biçimlendir",
+        minify: "Sıkıştır",
+        notStructured: "Geçerli JSON veya XML değil"
     )
 
     static let ru = ClipboardEditorStrings(
@@ -74,7 +85,10 @@ extension ClipboardEditorStrings {
         defaultView: "Буфер обмена открывается на",
         defaultViewHistory: "История",
         defaultViewEditor: "Редактор",
-        defaultViewCaption: "Редактор открывается с текстом, который сейчас в буфере обмена."
+        defaultViewCaption: "Редактор открывается с текстом, который сейчас в буфере обмена.",
+        format: "Форматировать",
+        minify: "Минифицировать",
+        notStructured: "Некорректный JSON или XML"
     )
 
     static let es = ClipboardEditorStrings(
@@ -83,7 +97,10 @@ extension ClipboardEditorStrings {
         defaultView: "El portapapeles se abre en",
         defaultViewHistory: "Historial",
         defaultViewEditor: "Editor",
-        defaultViewCaption: "El editor empieza con el texto que hay ahora en el portapapeles."
+        defaultViewCaption: "El editor empieza con el texto que hay ahora en el portapapeles.",
+        format: "Dar formato",
+        minify: "Minificar",
+        notStructured: "JSON o XML no válido"
     )
 
     static let sk = ClipboardEditorStrings(
@@ -92,7 +109,10 @@ extension ClipboardEditorStrings {
         defaultView: "Schránka sa otvorí na",
         defaultViewHistory: "História",
         defaultViewEditor: "Editor",
-        defaultViewCaption: "Editor sa otvorí s textom, ktorý je práve v schránke."
+        defaultViewCaption: "Editor sa otvorí s textom, ktorý je práve v schránke.",
+        format: "Formátovať",
+        minify: "Minifikovať",
+        notStructured: "Neplatný JSON alebo XML"
     )
 
     static let de = ClipboardEditorStrings(
@@ -101,7 +121,10 @@ extension ClipboardEditorStrings {
         defaultView: "Zwischenablage öffnet mit",
         defaultViewHistory: "Verlauf",
         defaultViewEditor: "Editor",
-        defaultViewCaption: "Der Editor beginnt mit dem Text, der gerade in der Zwischenablage liegt."
+        defaultViewCaption: "Der Editor beginnt mit dem Text, der gerade in der Zwischenablage liegt.",
+        format: "Formatieren",
+        minify: "Minimieren",
+        notStructured: "Kein gültiges JSON oder XML"
     )
 
     static let fr = ClipboardEditorStrings(
@@ -110,7 +133,10 @@ extension ClipboardEditorStrings {
         defaultView: "Le presse-papiers s’ouvre sur",
         defaultViewHistory: "Historique",
         defaultViewEditor: "Éditeur",
-        defaultViewCaption: "L’éditeur démarre avec le texte actuellement dans le presse-papiers."
+        defaultViewCaption: "L’éditeur démarre avec le texte actuellement dans le presse-papiers.",
+        format: "Formater",
+        minify: "Minifier",
+        notStructured: "JSON ou XML non valide"
     )
 
     static let it = ClipboardEditorStrings(
@@ -119,7 +145,10 @@ extension ClipboardEditorStrings {
         defaultView: "Gli appunti si aprono su",
         defaultViewHistory: "Cronologia",
         defaultViewEditor: "Editor",
-        defaultViewCaption: "L’editor parte con il testo che è negli appunti in questo momento."
+        defaultViewCaption: "L’editor parte con il testo che è negli appunti in questo momento.",
+        format: "Formatta",
+        minify: "Minifica",
+        notStructured: "JSON o XML non valido"
     )
 
     static let ja = ClipboardEditorStrings(
@@ -128,7 +157,10 @@ extension ClipboardEditorStrings {
         defaultView: "クリップボードの初期表示",
         defaultViewHistory: "履歴",
         defaultViewEditor: "エディタ",
-        defaultViewCaption: "エディタには、現在クリップボードにあるテキストが表示されます。"
+        defaultViewCaption: "エディタには、現在クリップボードにあるテキストが表示されます。",
+        format: "整形",
+        minify: "圧縮",
+        notStructured: "JSON または XML として無効です"
     )
 
     static let ko = ClipboardEditorStrings(
@@ -137,7 +169,10 @@ extension ClipboardEditorStrings {
         defaultView: "클립보드 시작 화면",
         defaultViewHistory: "기록",
         defaultViewEditor: "편집기",
-        defaultViewCaption: "편집기는 현재 클립보드에 있는 텍스트로 시작합니다."
+        defaultViewCaption: "편집기는 현재 클립보드에 있는 텍스트로 시작합니다.",
+        format: "정렬",
+        minify: "압축",
+        notStructured: "올바른 JSON 또는 XML이 아닙니다"
     )
 
     static let zhHans = ClipboardEditorStrings(
@@ -146,7 +181,10 @@ extension ClipboardEditorStrings {
         defaultView: "剪贴板默认打开",
         defaultViewHistory: "历史",
         defaultViewEditor: "编辑器",
-        defaultViewCaption: "编辑器会以当前剪贴板中的文本开始。"
+        defaultViewCaption: "编辑器会以当前剪贴板中的文本开始。",
+        format: "格式化",
+        minify: "压缩",
+        notStructured: "不是有效的 JSON 或 XML"
     )
 
     static let zhTW = ClipboardEditorStrings(
@@ -155,7 +193,10 @@ extension ClipboardEditorStrings {
         defaultView: "剪貼簿預設開啟",
         defaultViewHistory: "紀錄",
         defaultViewEditor: "編輯器",
-        defaultViewCaption: "編輯器會以目前剪貼簿中的文字開始。"
+        defaultViewCaption: "編輯器會以目前剪貼簿中的文字開始。",
+        format: "格式化",
+        minify: "壓縮",
+        notStructured: "不是有效的 JSON 或 XML"
     )
 
     static let zhHK = ClipboardEditorStrings(
@@ -164,7 +205,10 @@ extension ClipboardEditorStrings {
         defaultView: "剪貼簿預設開啟",
         defaultViewHistory: "記錄",
         defaultViewEditor: "編輯器",
-        defaultViewCaption: "編輯器會以目前剪貼簿中的文字開始。"
+        defaultViewCaption: "編輯器會以目前剪貼簿中的文字開始。",
+        format: "格式化",
+        minify: "壓縮",
+        notStructured: "不是有效的 JSON 或 XML"
     )
 
     static let uk = ClipboardEditorStrings(
@@ -173,6 +217,9 @@ extension ClipboardEditorStrings {
         defaultView: "Буфер обміну відкривається на",
         defaultViewHistory: "Історія",
         defaultViewEditor: "Редактор",
-        defaultViewCaption: "Редактор починається з тексту, який зараз у буфері обміну."
+        defaultViewCaption: "Редактор починається з тексту, який зараз у буфері обміну.",
+        format: "Форматувати",
+        minify: "Мінімізувати",
+        notStructured: "Недійсний JSON або XML"
     )
 }

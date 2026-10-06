@@ -15,6 +15,7 @@ enum TextToolsTests {
         suite.run("text tools xml") { xml(suite) }
         suite.run("text tools detection") { detection(suite) }
         suite.run("text tools replace") { replace(suite) }
+        suite.run("text tools navigation") { navigation(suite) }
     }
 
     private static func json(_ suite: TestSuite) {
@@ -150,5 +151,37 @@ enum TextToolsTests {
                      "matchCount counts every match")
         suite.expect(TextToolsSupport.matchCount(in: "a a a", find: "[", options: regex) == .failure(.invalidPattern),
                      "matchCount reports a broken regex")
+    }
+
+    private static func navigation(_ suite: TestSuite) {
+        let literal = TextToolsSupport.ReplaceOptions()
+        let regex = TextToolsSupport.ReplaceOptions(isRegex: true)
+        let text = "ab ab ab"  // matches start at 0, 3 and 6
+        func next(_ from: Int, back: Bool = false, find: String = "ab",
+                  options: TextToolsSupport.ReplaceOptions = literal) -> NSRange? {
+            if case .success(let range) = TextToolsSupport.nextMatch(in: text, find: find, from: from,
+                                                                    backwards: back, options: options) {
+                return range
+            }
+            return nil
+        }
+        suite.expect(next(0) == NSRange(location: 0, length: 2), "a caret on a match selects that match")
+        suite.expect(next(2) == NSRange(location: 3, length: 2), "stepping on from the end of a match finds the next")
+        suite.expect(next(7) == NSRange(location: 0, length: 2), "stepping past the last match wraps to the first")
+        suite.expect(next(6, back: true) == NSRange(location: 3, length: 2), "backward finds the one before")
+        suite.expect(next(0, back: true) == NSRange(location: 6, length: 2), "backward past the first wraps to the last")
+        suite.expect(next(0, find: "zz") == nil, "no match gives nil")
+        suite.expect(TextToolsSupport.nextMatch(in: text, find: "(", from: 0, options: regex) == .failure(.invalidPattern),
+                     "a broken regex is reported")
+        suite.expect(TextToolsSupport.nextMatch(in: text, find: "", from: 0) == .failure(.emptyPattern),
+                     "an empty search is refused")
+        // Empty matches: `^` matches at the start of each of three lines.
+        if case .success(let range) = TextToolsSupport.nextMatch(in: "a\nb\nc", find: "^", from: 0, options: regex) {
+            suite.expect(range == NSRange(location: 2, length: 0),
+                         "an empty match at the caret is skipped going forward, so stepping moves on")
+        } else {
+            suite.expect(false, "^ is a valid pattern")
+        }
+        suite.expect(next(0, find: #"\d+"#, options: regex) == nil, "no digits, no match")
     }
 }

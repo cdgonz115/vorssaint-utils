@@ -382,6 +382,27 @@ enum TextToolsSupport {
         }
     }
 
+    /// The match to jump to from `location`, wrapping around at either end.
+    ///
+    /// Forward finds the first match that starts at or after `location`;
+    /// backward finds the last one that starts before it. A caller steps
+    /// forward from the end of the current selection and backward from its
+    /// start. Empty matches (`^` on its own, say) are skipped going forward
+    /// from where they sit, so stepping cannot stay on one forever. Nil
+    /// when nothing matches. The range is in UTF-16 units, as AppKit uses.
+    static func nextMatch(in text: String, find: String, from location: Int, backwards: Bool = false,
+                          options: ReplaceOptions = ReplaceOptions()) -> Result<NSRange?, ReplaceFailure> {
+        expression(find: find, options: options).map { (regex: NSRegularExpression) -> NSRange? in
+            let ranges = regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).map(\.range)
+            guard !ranges.isEmpty else { return nil }
+            if backwards {
+                return ranges.last(where: { $0.location < location }) ?? ranges.last
+            }
+            return ranges.first(where: { $0.location > location || ($0.location == location && $0.length > 0) })
+                ?? ranges.first
+        }
+    }
+
     /// Replaces every match. In regex mode the replacement may use `$1`-style
     /// capture groups; in literal mode both the pattern and the replacement are
     /// taken exactly as typed, so `.` and `$1` mean themselves.

@@ -49,6 +49,13 @@ struct PlainTextEditor: NSViewRepresentable {
     /// Turns on AppKit's own find bar: the real Command-F, with its counter,
     /// its highlighting and Command-G, none of which is worth rewriting.
     var usesFindBar = false
+    /// Gives this editor an undo history of its own, discarded with the editor.
+    /// By default a text view uses its window's undo manager, which every text
+    /// view in that window shares and which outlives them: an entry left by a
+    /// text view that has since been freed is still on that stack, and undoing
+    /// into it crashes. A view that is created and destroyed as pages change,
+    /// like the island's, should not share one.
+    var ownsUndoManager = false
     /// Handed the text view once, for callers that need to reach it later.
     var onCreate: ((NSTextView) -> Void)?
 
@@ -58,6 +65,7 @@ struct PlainTextEditor: NSViewRepresentable {
          textColor: NSColor? = nil,
          textContainerInset: NSSize? = nil,
          usesFindBar: Bool = false,
+         ownsUndoManager: Bool = false,
          onCreate: ((NSTextView) -> Void)? = nil) {
         self._text = text
         self.fontSize = fontSize
@@ -65,6 +73,7 @@ struct PlainTextEditor: NSViewRepresentable {
         self.textColor = textColor
         self.textContainerInset = textContainerInset
         self.usesFindBar = usesFindBar
+        self.ownsUndoManager = ownsUndoManager
         self.onCreate = onCreate
     }
 
@@ -127,17 +136,28 @@ struct PlainTextEditor: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, selectedRange: selectedRange)
+        Coordinator(text: $text, selectedRange: selectedRange, ownsUndoManager: ownsUndoManager)
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
         private let text: Binding<String>
         private let selectedRange: Binding<Range<Int>?>?
         var isApplyingExternalText = false
+        /// Nil unless the editor asked for its own history. The coordinator
+        /// lives exactly as long as the editor, so the history goes with it.
+        private let ownUndoManager: UndoManager?
 
-        init(text: Binding<String>, selectedRange: Binding<Range<Int>?>?) {
+        init(text: Binding<String>, selectedRange: Binding<Range<Int>?>?, ownsUndoManager: Bool) {
             self.text = text
             self.selectedRange = selectedRange
+            self.ownUndoManager = ownsUndoManager ? UndoManager() : nil
+        }
+
+        /// NSTextView asks its delegate first. An editor that did not ask for
+        /// its own history is handed the window's, which is what it used before
+        /// this method existed.
+        func undoManager(for view: NSTextView) -> UndoManager? {
+            ownUndoManager ?? view.window?.undoManager
         }
 
         func textDidChange(_ notification: Notification) {
