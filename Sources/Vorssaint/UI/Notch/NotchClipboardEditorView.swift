@@ -27,6 +27,9 @@ struct NotchClipboardEditorView: View {
     @State private var editor = EditorHandle()
     @State private var notice: String?
     @State private var showFind = false
+    /// The replace row stays out of the way until it is asked for, as in a
+    /// code editor: most searches are only searches.
+    @State private var showReplace = false
     private var text: ClipboardEditorStrings { FeatureStrings.clipboardEditor(l10n.language) }
     private var toolsText: TextToolsStrings { FeatureStrings.textTools(l10n.language) }
 
@@ -54,7 +57,6 @@ struct NotchClipboardEditorView: View {
                 NotchIconButton(symbol: "magnifyingglass", title: toolsText.findToggle, selected: showFind) {
                     if showFind { closeFind() } else { showFind = true }
                 }
-                .keyboardShortcut("f", modifiers: .command)
                 NotchIconButton(symbol: "curlybraces", title: text.format) { transform(minify: false) }
                 NotchIconButton(symbol: "arrow.down.right.and.arrow.up.left", title: text.minify) {
                     transform(minify: true)
@@ -65,7 +67,8 @@ struct NotchClipboardEditorView: View {
             .modifier(NotchControlSurface(cornerRadius: 14))
 
             if showFind {
-                NotchFindReplaceBar(textView: { editor.view }, text: model.draft, onClose: closeFind)
+                NotchFindReplaceBar(textView: { editor.view }, text: model.draft,
+                                    showReplace: $showReplace, onClose: closeFind)
             }
 
             PlainTextEditor(text: $model.draft,
@@ -85,6 +88,19 @@ struct NotchClipboardEditorView: View {
             .modifier(NotchControlSurface(cornerRadius: 12, interactive: false))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // Command-F and Command-R are buttons of their own, since a button
+        // holds a single shortcut and the toolbar's only opens or closes.
+        .background {
+            Group {
+                Button(action: toggleFind) { EmptyView() }
+                    .keyboardShortcut("f", modifiers: .command)
+                Button(action: toggleFindAndReplace) { EmptyView() }
+                    .keyboardShortcut("r", modifiers: .command)
+            }
+            .opacity(0)
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
+        }
         // The island collapsing, or the page changing, ends the editor. The
         // outcome is not reported here: a failed commit keeps the draft, but
         // nothing is left on screen to show it on.
@@ -123,9 +139,32 @@ struct NotchClipboardEditorView: View {
         view.replaceAllText(with: result)
     }
 
+    /// Command-F: the find row, then back out one step at a time. With the
+    /// replace row showing it only puts that away; the next press closes the bar.
+    private func toggleFind() {
+        if !showFind {
+            showFind = true
+        } else if showReplace {
+            showReplace = false
+        } else {
+            closeFind()
+        }
+    }
+
+    /// Command-R: everything out, or everything away.
+    private func toggleFindAndReplace() {
+        if showFind && showReplace {
+            closeFind()
+        } else {
+            showFind = true
+            showReplace = true
+        }
+    }
+
     /// Puts the find bar away and gives the keyboard back to the text.
     private func closeFind() {
         showFind = false
+        showReplace = false
         DispatchQueue.main.async { focusEditor() }
     }
 

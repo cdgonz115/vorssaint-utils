@@ -21,6 +21,9 @@ struct NotchFindReplaceBar: View {
     let textView: () -> NSTextView?
     /// The editor's text as it is now, so the count follows what is typed.
     let text: String
+    /// Whether the replace row is showing. The owner holds it so a shortcut
+    /// can show or hide it along with the bar.
+    @Binding var showReplace: Bool
     /// Esc inside either field: the owner puts the bar away.
     let onClose: () -> Void
 
@@ -29,9 +32,6 @@ struct NotchFindReplaceBar: View {
     @State private var replacement = ""
     @State private var isRegex = false
     @State private var caseSensitive = false
-    /// The replace row stays out of the way until it is asked for, as in a
-    /// code editor: most searches are only searches.
-    @State private var showReplace = false
     @State private var count: Result<Int, TextToolsSupport.ReplaceFailure>?
     /// What the last replace did; cleared when the search changes.
     @State private var replacedNote: String?
