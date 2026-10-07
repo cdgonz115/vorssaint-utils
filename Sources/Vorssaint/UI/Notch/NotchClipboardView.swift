@@ -217,9 +217,14 @@ struct NotchClipboardView: View {
         Button(text.delete, role: .destructive) { remove(entry) }
     }
 
-    /// The page opens on the editor when that is the view the user chose.
+    /// The page opens on the editor when that is the view the user chose, or
+    /// when it was opened from the "Copied" notice.
     private func openDefaultView() {
-        guard !preview, editing == nil, ClipboardOpenView.current == .editor else { return }
+        guard !preview, editing == nil else { return }
+        // Clicking the "Copied" notice goes straight to editing what was copied,
+        // whichever view the clipboard normally opens on.
+        let fromNotice = service.takeClipboardEditorRequest()
+        guard fromNotice || ClipboardOpenView.current == .editor else { return }
         openLiveEditor()
     }
 
