@@ -74,6 +74,16 @@ struct NotchFindReplaceBar: View {
                     .focused($findFocused)
                     .onSubmit { step(backwards: NSEvent.modifierFlags.contains(.shift)) }
                     .onExitCommand(perform: onClose)
+                    // Up and Down step through the matches like the buttons do;
+                    // in a one-line field they have nothing else to do.
+                    .onKeyPress(.upArrow) {
+                        step(backwards: true)
+                        return .handled
+                    }
+                    .onKeyPress(.downArrow) {
+                        step(backwards: false)
+                        return .handled
+                    }
                     .accessibilityLabel(strings.find)
                 Text(statusText)
                     .font(.system(size: 10.5))
@@ -115,7 +125,7 @@ struct NotchFindReplaceBar: View {
         .modifier(NotchControlSurface(cornerRadius: 14))
         .onAppear {
             prefillFromSelection()
-            findFocused = true
+            focusFindField()
         }
         .onChange(of: find) { _, _ in replacedNote = nil }
         .onChange(of: isRegex) { _, _ in replacedNote = nil }
@@ -161,6 +171,16 @@ struct NotchFindReplaceBar: View {
     }
 
     // MARK: - Actions
+
+    /// The bar usually appears while the text view holds the keyboard. Asking
+    /// for focus in the same pass that creates the field does not take it
+    /// from the text view, so the request waits for the field to exist.
+    private func focusFindField() {
+        DispatchQueue.main.async {
+            textView()?.window?.makeFirstResponder(nil)
+            findFocused = true
+        }
+    }
 
     /// A short single-line selection becomes the search, as in any find bar.
     private func prefillFromSelection() {
