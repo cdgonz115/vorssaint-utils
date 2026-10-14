@@ -29,6 +29,8 @@ struct ClipboardSettings: View {
     @AppStorage(DefaultsKey.clipboardEditorEnabled) private var editorEnabled = true
     @AppStorage(DefaultsKey.clipboardEditorDefaultView)
     private var editorDefaultView = ClipboardOpenView.history.rawValue
+    @AppStorage(DefaultsKey.clipboardEditorNoticeView)
+    private var editorNoticeView = ClipboardOpenView.editor.rawValue
 
     private var text: ClipboardFeatureStrings {
         FeatureStrings.clipboard(l10n.language)
@@ -237,6 +239,11 @@ struct ClipboardSettings: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Picker(editorText.defaultView, selection: $editorDefaultView) {
+                Text(editorText.defaultViewHistory).tag(ClipboardOpenView.history.rawValue)
+                Text(editorText.defaultViewEditor).tag(ClipboardOpenView.editor.rawValue)
+            }
+            .disabled(!editorEnabled)
+            Picker(editorText.noticeView, selection: $editorNoticeView) {
                 Text(editorText.defaultViewHistory).tag(ClipboardOpenView.history.rawValue)
                 Text(editorText.defaultViewEditor).tag(ClipboardOpenView.editor.rawValue)
             }

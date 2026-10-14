@@ -33,6 +33,14 @@ enum ClipboardOpenView: String, CaseIterable {
                        editorEnabled: defaults.bool(forKey: DefaultsKey.clipboardEditorEnabled))
     }
 
+    /// The view the "Copied" notice opens when it is clicked, which is set
+    /// apart from the one the clipboard opens on by hand.
+    static var forCopyNotice: ClipboardOpenView {
+        let defaults = UserDefaults.standard
+        return resolve(stored: defaults.string(forKey: DefaultsKey.clipboardEditorNoticeView),
+                       editorEnabled: defaults.bool(forKey: DefaultsKey.clipboardEditorEnabled))
+    }
+
     /// Whether the editor is switched on, for the buttons that lead to it.
     static var isEditorEnabled: Bool {
         UserDefaults.standard.bool(forKey: DefaultsKey.clipboardEditorEnabled)

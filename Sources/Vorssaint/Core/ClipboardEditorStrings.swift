@@ -15,6 +15,7 @@ struct ClipboardEditorStrings {
     let defaultViewHistory: String
     let defaultViewEditor: String
     let defaultViewCaption: String
+    let noticeView: String
     let format: String
     let minify: String
     let notStructured: String
@@ -50,6 +51,7 @@ extension ClipboardEditorStrings {
         defaultViewHistory: "History",
         defaultViewEditor: "Editor",
         defaultViewCaption: "The editor starts with the text on your clipboard right now.",
+        noticeView: "Clipboard notification opens on",
         format: "Format",
         minify: "Minify",
         notStructured: "Not valid JSON or XML"
@@ -62,6 +64,7 @@ extension ClipboardEditorStrings {
         defaultViewHistory: "Histórico",
         defaultViewEditor: "Editor",
         defaultViewCaption: "O editor começa com o texto que está no clipboard agora.",
+        noticeView: "A notificação do clipboard abre em",
         format: "Formatar",
         minify: "Minificar",
         notStructured: "JSON ou XML inválido"
@@ -74,6 +77,7 @@ extension ClipboardEditorStrings {
         defaultViewHistory: "Geçmiş",
         defaultViewEditor: "Düzenleyici",
         defaultViewCaption: "Düzenleyici, şu anda panonuzda bulunan metinle başlar.",
+        noticeView: "Pano bildirimi şununla açılır",
         format: "Biçimlendir",
         minify: "Sıkıştır",
         notStructured: "Geçerli JSON veya XML değil"
@@ -86,6 +90,7 @@ extension ClipboardEditorStrings {
         defaultViewHistory: "История",
         defaultViewEditor: "Редактор",
         defaultViewCaption: "Редактор открывается с текстом, который сейчас в буфере обмена.",
+        noticeView: "Уведомление буфера обмена открывается на",
         format: "Форматировать",
         minify: "Минифицировать",
         notStructured: "Некорректный JSON или XML"
@@ -98,6 +103,7 @@ extension ClipboardEditorStrings {
         defaultViewHistory: "Historial",
         defaultViewEditor: "Editor",
         defaultViewCaption: "El editor empieza con el texto que hay ahora en el portapapeles.",
+        noticeView: "La notificación del portapapeles se abre en",
         format: "Dar formato",
         minify: "Minificar",
         notStructured: "JSON o XML no válido"
@@ -110,6 +116,7 @@ extension ClipboardEditorStrings {
         defaultViewHistory: "História",
         defaultViewEditor: "Editor",
         defaultViewCaption: "Editor sa otvorí s textom, ktorý je práve v schránke.",
+        noticeView: "Oznámenie schránky sa otvorí na",
         format: "Formátovať",
         minify: "Minifikovať",
         notStructured: "Neplatný JSON alebo XML"
@@ -122,6 +129,7 @@ extension ClipboardEditorStrings {
         defaultViewHistory: "Verlauf",
         defaultViewEditor: "Editor",
         defaultViewCaption: "Der Editor beginnt mit dem Text, der gerade in der Zwischenablage liegt.",
+        noticeView: "Zwischenablage-Hinweis öffnet mit",
         format: "Formatieren",
         minify: "Minimieren",
         notStructured: "Kein gültiges JSON oder XML"
@@ -134,6 +142,7 @@ extension ClipboardEditorStrings {
         defaultViewHistory: "Historique",
         defaultViewEditor: "Éditeur",
         defaultViewCaption: "L’éditeur démarre avec le texte actuellement dans le presse-papiers.",
+        noticeView: "La notification du presse-papiers s’ouvre sur",
         format: "Formater",
         minify: "Minifier",
         notStructured: "JSON ou XML non valide"
@@ -146,6 +155,7 @@ extension ClipboardEditorStrings {
         defaultViewHistory: "Cronologia",
         defaultViewEditor: "Editor",
         defaultViewCaption: "L’editor parte con il testo che è negli appunti in questo momento.",
+        noticeView: "La notifica degli appunti si apre su",
         format: "Formatta",
         minify: "Minifica",
         notStructured: "JSON o XML non valido"
@@ -158,6 +168,7 @@ extension ClipboardEditorStrings {
         defaultViewHistory: "履歴",
         defaultViewEditor: "エディタ",
         defaultViewCaption: "エディタには、現在クリップボードにあるテキストが表示されます。",
+        noticeView: "クリップボード通知で開く画面",
         format: "整形",
         minify: "圧縮",
         notStructured: "JSON または XML として無効です"
@@ -170,6 +181,7 @@ extension ClipboardEditorStrings {
         defaultViewHistory: "기록",
         defaultViewEditor: "편집기",
         defaultViewCaption: "편집기는 현재 클립보드에 있는 텍스트로 시작합니다.",
+        noticeView: "클립보드 알림 시작 화면",
         format: "정렬",
         minify: "압축",
         notStructured: "올바른 JSON 또는 XML이 아닙니다"
@@ -182,6 +194,7 @@ extension ClipboardEditorStrings {
         defaultViewHistory: "历史",
         defaultViewEditor: "编辑器",
         defaultViewCaption: "编辑器会以当前剪贴板中的文本开始。",
+        noticeView: "剪贴板通知默认打开",
         format: "格式化",
         minify: "压缩",
         notStructured: "不是有效的 JSON 或 XML"
@@ -194,6 +207,7 @@ extension ClipboardEditorStrings {
         defaultViewHistory: "紀錄",
         defaultViewEditor: "編輯器",
         defaultViewCaption: "編輯器會以目前剪貼簿中的文字開始。",
+        noticeView: "剪貼簿通知預設開啟",
         format: "格式化",
         minify: "壓縮",
         notStructured: "不是有效的 JSON 或 XML"
@@ -206,6 +220,7 @@ extension ClipboardEditorStrings {
         defaultViewHistory: "記錄",
         defaultViewEditor: "編輯器",
         defaultViewCaption: "編輯器會以目前剪貼簿中的文字開始。",
+        noticeView: "剪貼簿通知預設開啟",
         format: "格式化",
         minify: "壓縮",
         notStructured: "不是有效的 JSON 或 XML"
@@ -218,6 +233,7 @@ extension ClipboardEditorStrings {
         defaultViewHistory: "Історія",
         defaultViewEditor: "Редактор",
         defaultViewCaption: "Редактор починається з тексту, який зараз у буфері обміну.",
+        noticeView: "Сповіщення буфера обміну відкривається на",
         format: "Форматувати",
         minify: "Мінімізувати",
         notStructured: "Недійсний JSON або XML"

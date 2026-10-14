@@ -165,11 +165,17 @@ enum ClipboardEditorTests {
                         == ClipboardOpenView.history.rawValue,
                      "the clipboard still opens on the history by default, as it always has")
 
+        suite.expect(registered[DefaultsKey.clipboardEditorNoticeView] as? String
+                        == ClipboardOpenView.editor.rawValue,
+                     "clicking the Copied notice opens the editor by default")
+
         let exported = SettingsBackupSupport.exportKeys()
         suite.expect(exported.contains(DefaultsKey.clipboardEditorEnabled)
-                        && exported.contains(DefaultsKey.clipboardEditorDefaultView),
-                     "both editor settings travel in a backup")
-        suite.expect(SettingsBackupSupport.valueLooksRight(DefaultsKey.clipboardEditorDefaultView, "editor"),
+                        && exported.contains(DefaultsKey.clipboardEditorDefaultView)
+                        && exported.contains(DefaultsKey.clipboardEditorNoticeView),
+                     "all three editor settings travel in a backup")
+        suite.expect(SettingsBackupSupport.valueLooksRight(DefaultsKey.clipboardEditorDefaultView, "editor")
+                        && SettingsBackupSupport.valueLooksRight(DefaultsKey.clipboardEditorNoticeView, "history"),
                      "a restored opening view is accepted")
         suite.expect(!SettingsBackupSupport.valueLooksRight(DefaultsKey.clipboardEditorEnabled, "yes"),
                      "a restored switch of the wrong type is dropped")

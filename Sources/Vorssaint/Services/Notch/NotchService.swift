@@ -124,10 +124,10 @@ final class NotchService: ObservableObject {
     private var hiddenHoverMonitors: [Any] = []
     private var hoverWork: DispatchWorkItem?
     private var noticeWork: DispatchWorkItem?
-    /// When the "Copied" notice was clicked, so the clipboard page opens on
-    /// the editor for what was just copied. Stamped rather than a flag, so a
-    /// click whose page never opened cannot surprise a later visit.
-    private var clipboardEditorRequestedAt: Date?
+    /// The view the "Copied" notice asked the clipboard page to open on, and
+    /// when. Stamped rather than a flag, so a click whose page never opened
+    /// cannot surprise a later visit.
+    private var clipboardOpenRequest: (view: ClipboardOpenView, at: Date)?
     private var departureWork: DispatchWorkItem?
     private var musicDepartureWork: DispatchWorkItem?
     private var presentedMusic: NotchCompactMusicSnapshot?
@@ -1705,18 +1705,20 @@ final class NotchService: ObservableObject {
         return true
     }
 
-    /// Whether the clipboard page is being opened from the "Copied" notice,
-    /// and so should show the editor. Reading it clears it.
-    func takeClipboardEditorRequest() -> Bool {
-        defer { clipboardEditorRequestedAt = nil }
-        guard let requested = clipboardEditorRequestedAt else { return false }
-        return Date().timeIntervalSince(requested) < 3
+    /// The view the clipboard page should open on when it is being opened from
+    /// the "Copied" notice, or nil when it was opened any other way. Reading
+    /// it clears it.
+    func takeClipboardOpenRequest() -> ClipboardOpenView? {
+        defer { clipboardOpenRequest = nil }
+        guard let request = clipboardOpenRequest,
+              Date().timeIntervalSince(request.at) < 3 else { return nil }
+        return request.view
     }
 
     func activateNotice(_ selectedNotice: NotchNotice) {
         guard notice == selectedNotice else { return }
-        if selectedNotice.event == .clipboard, ClipboardOpenView.isEditorEnabled {
-            clipboardEditorRequestedAt = Date()
+        if selectedNotice.event == .clipboard {
+            clipboardOpenRequest = (ClipboardOpenView.forCopyNotice, Date())
         }
         if let id = selectedNotice.notificationID {
             guard NotchNotificationService.shared.openingID == nil else { return }

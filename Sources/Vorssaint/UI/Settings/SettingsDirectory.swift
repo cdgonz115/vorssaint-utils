@@ -160,7 +160,7 @@ enum SettingsDirectory {
             id: .setting(.clipboardEditor),
             destination: FeatureSettingsDestination(.clipboard, sectionAnchor: .clipboardEditor),
             title: editor.enable, icon: "square.and.pencil",
-            keywords: [editor.defaultView, editor.format, editor.minify],
+            keywords: [editor.defaultView, editor.noticeView, editor.format, editor.minify],
             feature: .clipboardHistory))
         return items
     }
