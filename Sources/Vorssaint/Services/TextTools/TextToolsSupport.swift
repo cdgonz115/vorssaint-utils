@@ -66,6 +66,19 @@ enum TextToolsSupport {
         }
     }
 
+    /// The text laid out as one named format, indented or with its layout
+    /// whitespace removed. Nil when the text is not valid in that format, so a
+    /// caller that lets the person pick the format can say so rather than
+    /// guess another one.
+    static func render(_ text: String, as format: Format, minified: Bool) -> String? {
+        switch (format, minified) {
+        case (.json, false): return prettyPrintJSON(text)
+        case (.json, true): return minifyJSON(text)
+        case (.xml, false): return prettyPrintXML(text)
+        case (.xml, true): return minifyXML(text)
+        }
+    }
+
     // MARK: - JSON
 
     /// Validates first (strictly, see `JSONValidator`), then re-indents the

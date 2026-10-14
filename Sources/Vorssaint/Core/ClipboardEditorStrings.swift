@@ -18,7 +18,11 @@ struct ClipboardEditorStrings {
     let noticeView: String
     let format: String
     let minify: String
-    let notStructured: String
+    let raw: String
+    let formatted: String
+    let typeText: String
+    let invalidJSON: String
+    let invalidXML: String
 }
 
 extension FeatureStrings {
@@ -54,7 +58,11 @@ extension ClipboardEditorStrings {
         noticeView: "Clipboard notification opens on",
         format: "Format",
         minify: "Minify",
-        notStructured: "Not valid JSON or XML"
+        raw: "Raw",
+        formatted: "Formatted",
+        typeText: "Text",
+        invalidJSON: "Not valid JSON",
+        invalidXML: "Not valid XML"
     )
 
     static let ptBR = ClipboardEditorStrings(
@@ -67,7 +75,11 @@ extension ClipboardEditorStrings {
         noticeView: "A notificação do clipboard abre em",
         format: "Formatar",
         minify: "Minificar",
-        notStructured: "JSON ou XML inválido"
+        raw: "Bruto",
+        formatted: "Formatado",
+        typeText: "Texto",
+        invalidJSON: "JSON inválido",
+        invalidXML: "XML inválido"
     )
 
     static let tr = ClipboardEditorStrings(
@@ -80,7 +92,11 @@ extension ClipboardEditorStrings {
         noticeView: "Pano bildirimi şununla açılır",
         format: "Biçimlendir",
         minify: "Sıkıştır",
-        notStructured: "Geçerli JSON veya XML değil"
+        raw: "Ham",
+        formatted: "Biçimlendirilmiş",
+        typeText: "Metin",
+        invalidJSON: "Geçersiz JSON",
+        invalidXML: "Geçersiz XML"
     )
 
     static let ru = ClipboardEditorStrings(
@@ -93,7 +109,11 @@ extension ClipboardEditorStrings {
         noticeView: "Уведомление буфера обмена открывается на",
         format: "Форматировать",
         minify: "Минифицировать",
-        notStructured: "Некорректный JSON или XML"
+        raw: "Исходный",
+        formatted: "Форматированный",
+        typeText: "Текст",
+        invalidJSON: "Недопустимый JSON",
+        invalidXML: "Недопустимый XML"
     )
 
     static let es = ClipboardEditorStrings(
@@ -106,7 +126,11 @@ extension ClipboardEditorStrings {
         noticeView: "La notificación del portapapeles se abre en",
         format: "Dar formato",
         minify: "Minificar",
-        notStructured: "JSON o XML no válido"
+        raw: "Sin formato",
+        formatted: "Formateado",
+        typeText: "Texto",
+        invalidJSON: "JSON no válido",
+        invalidXML: "XML no válido"
     )
 
     static let sk = ClipboardEditorStrings(
@@ -119,7 +143,11 @@ extension ClipboardEditorStrings {
         noticeView: "Oznámenie schránky sa otvorí na",
         format: "Formátovať",
         minify: "Minifikovať",
-        notStructured: "Neplatný JSON alebo XML"
+        raw: "Pôvodný",
+        formatted: "Formátovaný",
+        typeText: "Text",
+        invalidJSON: "Neplatný JSON",
+        invalidXML: "Neplatný XML"
     )
 
     static let de = ClipboardEditorStrings(
@@ -132,7 +160,11 @@ extension ClipboardEditorStrings {
         noticeView: "Zwischenablage-Hinweis öffnet mit",
         format: "Formatieren",
         minify: "Minimieren",
-        notStructured: "Kein gültiges JSON oder XML"
+        raw: "Roh",
+        formatted: "Formatiert",
+        typeText: "Text",
+        invalidJSON: "Kein gültiges JSON",
+        invalidXML: "Kein gültiges XML"
     )
 
     static let fr = ClipboardEditorStrings(
@@ -145,7 +177,11 @@ extension ClipboardEditorStrings {
         noticeView: "La notification du presse-papiers s’ouvre sur",
         format: "Formater",
         minify: "Minifier",
-        notStructured: "JSON ou XML non valide"
+        raw: "Brut",
+        formatted: "Formaté",
+        typeText: "Texte",
+        invalidJSON: "JSON invalide",
+        invalidXML: "XML invalide"
     )
 
     static let it = ClipboardEditorStrings(
@@ -158,7 +194,11 @@ extension ClipboardEditorStrings {
         noticeView: "La notifica degli appunti si apre su",
         format: "Formatta",
         minify: "Minifica",
-        notStructured: "JSON o XML non valido"
+        raw: "Originale",
+        formatted: "Formattato",
+        typeText: "Testo",
+        invalidJSON: "JSON non valido",
+        invalidXML: "XML non valido"
     )
 
     static let ja = ClipboardEditorStrings(
@@ -171,7 +211,11 @@ extension ClipboardEditorStrings {
         noticeView: "クリップボード通知で開く画面",
         format: "整形",
         minify: "圧縮",
-        notStructured: "JSON または XML として無効です"
+        raw: "未加工",
+        formatted: "整形済み",
+        typeText: "テキスト",
+        invalidJSON: "無効なJSON",
+        invalidXML: "無効なXML"
     )
 
     static let ko = ClipboardEditorStrings(
@@ -184,7 +228,11 @@ extension ClipboardEditorStrings {
         noticeView: "클립보드 알림 시작 화면",
         format: "정렬",
         minify: "압축",
-        notStructured: "올바른 JSON 또는 XML이 아닙니다"
+        raw: "원본",
+        formatted: "서식 적용",
+        typeText: "텍스트",
+        invalidJSON: "올바르지 않은 JSON",
+        invalidXML: "올바르지 않은 XML"
     )
 
     static let zhHans = ClipboardEditorStrings(
@@ -197,7 +245,11 @@ extension ClipboardEditorStrings {
         noticeView: "剪贴板通知默认打开",
         format: "格式化",
         minify: "压缩",
-        notStructured: "不是有效的 JSON 或 XML"
+        raw: "原始",
+        formatted: "格式化",
+        typeText: "文本",
+        invalidJSON: "JSON 无效",
+        invalidXML: "XML 无效"
     )
 
     static let zhTW = ClipboardEditorStrings(
@@ -210,7 +262,11 @@ extension ClipboardEditorStrings {
         noticeView: "剪貼簿通知預設開啟",
         format: "格式化",
         minify: "壓縮",
-        notStructured: "不是有效的 JSON 或 XML"
+        raw: "原始",
+        formatted: "已格式化",
+        typeText: "文字",
+        invalidJSON: "JSON 無效",
+        invalidXML: "XML 無效"
     )
 
     static let zhHK = ClipboardEditorStrings(
@@ -223,7 +279,11 @@ extension ClipboardEditorStrings {
         noticeView: "剪貼簿通知預設開啟",
         format: "格式化",
         minify: "壓縮",
-        notStructured: "不是有效的 JSON 或 XML"
+        raw: "原始",
+        formatted: "已格式化",
+        typeText: "文字",
+        invalidJSON: "JSON 無效",
+        invalidXML: "XML 無效"
     )
 
     static let uk = ClipboardEditorStrings(
@@ -236,6 +296,10 @@ extension ClipboardEditorStrings {
         noticeView: "Сповіщення буфера обміну відкривається на",
         format: "Форматувати",
         minify: "Мінімізувати",
-        notStructured: "Недійсний JSON або XML"
+        raw: "Вихідний",
+        formatted: "Форматований",
+        typeText: "Текст",
+        invalidJSON: "Недійсний JSON",
+        invalidXML: "Недійсний XML"
     )
 }

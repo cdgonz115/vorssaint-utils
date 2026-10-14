@@ -42,6 +42,7 @@ enum ClipboardEditorTests {
         suite.run("clipboard editor live clipboard") { liveClipboard(suite) }
         suite.run("clipboard editor failures") { failures(suite) }
         suite.run("clipboard editor preferences") { preferences(suite) }
+        suite.run("clipboard editor tabs") { tabs(suite) }
     }
 
     private static func commit(_ model: ClipboardEditorModel,
@@ -144,6 +145,63 @@ enum ClipboardEditorTests {
         history.copyResult = true
         suite.expect(commit(model, history) == .committed(updatedHistory: true), "a retry succeeds")
         suite.expect(!model.hasChanges, "after a commit the editor has nothing pending")
+    }
+
+    private static func tabs(_ suite: TestSuite) {
+        let compact = #"{"a":1,"b":[1,2]}"#
+        let pretty = TextToolsSupport.prettyPrintJSON(compact) ?? ""
+        let entry = ClipboardHistoryEntry(text: compact)
+        let history = FakeHistory([entry])
+        let model = ClipboardEditorModel(original: compact, source: .entry(entry.id))
+
+        suite.expect(model.tab == .raw && model.dataType == .json && !model.minified,
+                     "the editor opens on Raw, set to the type the text parses as")
+        suite.expect(model.outputText == compact && !model.hasChanges, "Raw writes the text as it is")
+
+        model.tab = .formatted
+        suite.expect(!pretty.isEmpty && model.formattedText() == .init(text: pretty, isValid: true)
+                        && model.outputText == pretty,
+                     "Formatted shows the text indented")
+        suite.expect(model.draft == compact, "looking at Formatted never touches the text itself")
+        model.minified = true
+        suite.expect(model.outputText == compact, "Minified is the compact form")
+        model.minified = false
+
+        // What the open tab shows is what a close writes.
+        suite.expect(commit(model, history) == .committed(updatedHistory: true), "closing on Formatted commits")
+        suite.expect(history.entries.first?.text == pretty && history.copied.last?.text == pretty,
+                     "the formatted text is what lands in history and on the clipboard")
+        suite.expect(commit(model, history) == .unchanged, "a second close has nothing left to write")
+
+        // Edits on Raw are re-read the next time Formatted is shown.
+        let edited = ClipboardEditorModel(original: compact, source: .liveClipboard)
+        edited.draft = #"{"z":2}"#
+        edited.tab = .formatted
+        suite.expect(edited.outputText == (TextToolsSupport.prettyPrintJSON(#"{"z":2}"#) ?? "?"),
+                     "Formatted follows what was typed on Raw")
+
+        // Text that is not the chosen type is shown as it is, and flagged.
+        let broken = ClipboardEditorModel(original: "not { json", source: .liveClipboard)
+        suite.expect(broken.dataType == .text, "text that parses as nothing starts on Text")
+        broken.dataType = .json
+        broken.tab = .formatted
+        suite.expect(broken.formattedText() == .init(text: "not { json", isValid: false)
+                        && broken.outputText == "not { json",
+                     "the wrong type leaves the text alone and says so")
+        suite.expect(commit(broken, FakeHistory([])) == .unchanged, "and writes nothing")
+        broken.dataType = .text
+        suite.expect(broken.formattedText().isValid && broken.outputText == "not { json",
+                     "Text is always valid and unchanged, even minified")
+
+        // Already-formatted text has nothing to change.
+        let tidy = ClipboardEditorModel(original: pretty, source: .liveClipboard)
+        tidy.tab = .formatted
+        suite.expect(tidy.outputText == pretty && !tidy.hasChanges, "formatting formatted text changes nothing")
+
+        let xml = ClipboardEditorModel(original: "<a><b>1</b></a>", source: .liveClipboard)
+        suite.expect(xml.dataType == .xml, "XML is detected too")
+        xml.tab = .formatted
+        suite.expect(xml.formattedText().isValid && xml.outputText.contains("\n"), "and laid out on lines")
     }
 
     private static func preferences(_ suite: TestSuite) {

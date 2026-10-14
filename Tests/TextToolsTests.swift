@@ -110,6 +110,15 @@ enum TextToolsTests {
         suite.expect(TextToolsSupport.prettyPrint("hello") == nil, "prettyPrint leaves plain text alone")
         suite.expect(TextToolsSupport.minify("hello") == nil, "minify leaves plain text alone")
         suite.expect(TextToolsSupport.prettyPrint("[1]") == "[\n  1\n]", "prettyPrint picks JSON")
+        suite.expect(TextToolsSupport.render("[1]", as: .json, minified: false) == "[\n  1\n]",
+                     "render indents as the format that was asked for")
+        suite.expect(TextToolsSupport.render("[ 1 ]", as: .json, minified: true) == "[1]",
+                     "render can remove the layout instead")
+        suite.expect(TextToolsSupport.render("<a><b>1</b></a>", as: .xml, minified: true) == "<a><b>1</b></a>",
+                     "render handles XML as well")
+        suite.expect(TextToolsSupport.render("<a/>", as: .json, minified: false) == nil
+                        && TextToolsSupport.render("[1]", as: .xml, minified: false) == nil,
+                     "text that is not in the chosen format is refused, not read as another one")
     }
 
     private static func replace(_ suite: TestSuite) {
