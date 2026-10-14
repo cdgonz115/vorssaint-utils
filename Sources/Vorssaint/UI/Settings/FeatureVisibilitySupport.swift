@@ -40,6 +40,7 @@ enum SettingsSectionAnchor: String, CaseIterable, Hashable {
     case finderRename
     case clipboardHistory
     case pastePlain
+    case clipboardEditor
     case quickLauncher
     case quickToggles
     case screenshot
@@ -68,7 +69,7 @@ enum SettingsSectionAnchor: String, CaseIterable, Hashable {
         case .switcher: return .switcher
         case .dock, .dockClick: return .dock
         case .finderCutPaste, .finderRename: return .cutPaste
-        case .clipboardHistory, .pastePlain: return .clipboard
+        case .clipboardHistory, .pastePlain, .clipboardEditor: return .clipboard
         case .quickLauncher, .quickToggles, .micMute, .cameraPreview, .wallpaper, .scratchpad, .cleaningMode:
             return .quickTools
         case .screenshot, .screenRecorder, .colorPicker, .screenOCR:

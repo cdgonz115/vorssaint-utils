@@ -245,6 +245,7 @@ struct ClipboardSettings: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        .settingsFormSectionAnchor(.clipboardEditor)
     }
     
     // Never disabled by the capture toggle, unlike the sections above it:

@@ -153,6 +153,15 @@ enum SettingsDirectory {
         if BrightnessService.keyboardLightIsSupported {
             items.append(SettingsSearchSupport.keyboardBrightnessShortcutItem(language: language))
         }
+        // The editor is a section of the Clipboard page, not a feature of its
+        // own, so it has an anchor rather than an `AppFeature`.
+        let editor = FeatureStrings.clipboardEditor(language)
+        items.append(SettingsSearchItem(
+            id: .setting(.clipboardEditor),
+            destination: FeatureSettingsDestination(.clipboard, sectionAnchor: .clipboardEditor),
+            title: editor.enable, icon: "square.and.pencil",
+            keywords: [editor.defaultView, editor.format, editor.minify],
+            feature: .clipboardHistory))
         return items
     }
 
