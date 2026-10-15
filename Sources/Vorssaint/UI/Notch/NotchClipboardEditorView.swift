@@ -34,9 +34,6 @@ struct NotchClipboardEditorView: View {
     /// The replace row stays out of the way until it is asked for, as in a
     /// code editor: most searches are only searches.
     @State private var showReplace = false
-    /// The type and layout controls under the tabs, which can be put away to
-    /// give the text the room.
-    @State private var showFormatOptions = true
     private var text: ClipboardEditorStrings { FeatureStrings.clipboardEditor(l10n.language) }
     private var toolsText: TextToolsStrings { FeatureStrings.textTools(l10n.language) }
 
@@ -58,10 +55,6 @@ struct NotchClipboardEditorView: View {
         VStack(spacing: NotchLayout.rowSpacing) {
             toolbar
 
-            if model.tab == .formatted && showFormatOptions {
-                formatOptions
-            }
-
             if showFind {
                 NotchFindReplaceBar(textView: { activeView }, text: model.outputText,
                                     showReplace: $showReplace, canReplace: model.tab == .raw,
@@ -81,6 +74,10 @@ struct NotchClipboardEditorView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .modifier(NotchControlSurface(cornerRadius: 12, interactive: false))
+
+            if model.tab == .formatted {
+                formatFooter
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         // Command-F and Command-R are buttons of their own, since a button
@@ -116,37 +113,63 @@ struct NotchClipboardEditorView: View {
 
     // MARK: - Toolbar
 
+    /// Three separate pieces: the way back to the history, the find bar's
+    /// opener in the middle, and the tabs on the right.
     private var toolbar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: NotchLayout.rowSpacing) {
             NotchIconButton(symbol: "list.bullet", title: text.defaultViewHistory) { commitAndLeave() }
+                .frame(width: NotchLayout.clipboardSearchHeight, height: NotchLayout.clipboardSearchHeight)
+                .modifier(NotchControlSurface(cornerRadius: NotchLayout.clipboardSearchHeight / 2))
+
+            Button {
+                if showFind { closeFind() } else { showFind = true }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
+                    Text(toolsText.find)
+                    Spacer(minLength: 0)
+                }
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(showFind ? 0.9 : 0.55))
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity)
+                .frame(height: NotchLayout.clipboardSearchHeight)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .modifier(NotchControlSurface(cornerRadius: 14))
+            .accessibilityLabel(toolsText.findToggle)
+            .accessibilityAddTraits(showFind ? .isSelected : [])
+
             HStack(spacing: 2) {
                 pill(text.raw, selected: model.tab == .raw) { select(.raw) }
                 pill(text.formatted, selected: model.tab == .formatted) { select(.formatted) }
             }
-            Spacer(minLength: 0)
-            if model.tab == .formatted {
-                NotchIconButton(symbol: "slider.horizontal.3", title: text.formatted,
-                                selected: showFormatOptions) {
-                    showFormatOptions.toggle()
-                }
-            }
-            NotchIconButton(symbol: "magnifyingglass", title: toolsText.findToggle, selected: showFind) {
-                if showFind { closeFind() } else { showFind = true }
-            }
+            .padding(.horizontal, 8)
+            .frame(height: NotchLayout.clipboardSearchHeight)
+            .modifier(NotchControlSurface(cornerRadius: 14))
         }
-        .padding(.horizontal, 12)
-        .frame(height: NotchLayout.clipboardSearchHeight)
-        .modifier(NotchControlSurface(cornerRadius: 14))
     }
 
-    /// The type the text is read as, and whether to indent it or make it compact.
-    private var formatOptions: some View {
+    /// Under the text on Formatted: Minify on the left, the type the text is
+    /// read as on the right. Choosing a type lays the text out again, indented.
+    private var formatFooter: some View {
         HStack(spacing: 8) {
+            pill(text.minify, selected: model.minified) { model.minified.toggle() }
+                .opacity(model.dataType == .text ? 0.35 : 1)
+                .disabled(model.dataType == .text)
+            if !model.formattedText().isValid {
+                Text(invalidMessage)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Color.orange)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
             Menu {
                 ForEach(ClipboardEditorModel.DataType.allCases, id: \.self) { type in
                     Button {
                         model.dataType = type
-                        if type == .text { model.minified = false }
+                        model.minified = false
                     } label: {
                         if model.dataType == type {
                             Label(typeName(type), systemImage: "checkmark")
@@ -171,20 +194,6 @@ struct NotchClipboardEditorView: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .accessibilityLabel(typeName(model.dataType))
-
-            HStack(spacing: 2) {
-                pill(text.format, selected: !model.minified) { model.minified = false }
-                pill(text.minify, selected: model.minified) { model.minified = true }
-            }
-            .opacity(model.dataType == .text ? 0.35 : 1)
-            .disabled(model.dataType == .text)
-            Spacer(minLength: 0)
-            if !model.formattedText().isValid {
-                Text(invalidMessage)
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(Color.orange)
-                    .lineLimit(1)
-            }
         }
         .padding(.horizontal, 12)
         .frame(height: NotchLayout.clipboardSearchHeight)
@@ -259,6 +268,8 @@ struct NotchClipboardEditorView: View {
         guard model.tab != tab else { return }
         flushComposition()
         model.tab = tab
+        // Opening Formatted starts from the indented layout.
+        if tab == .formatted { model.minified = false }
         // Formatted cannot be replaced into, so its replace row is put away.
         if tab == .formatted { showReplace = false }
         DispatchQueue.main.async { focusEditor() }
