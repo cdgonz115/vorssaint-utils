@@ -111,19 +111,11 @@ struct NotchFindReplaceBar: View {
                     TextField(strings.replace, text: $replacement)
                         .textFieldStyle(.plain)
                         .font(.system(size: 12, design: .monospaced))
-                        .onSubmit(replaceAll)
+                        .onSubmit(replaceOne)
                         .onExitCommand(perform: onClose)
                         .accessibilityLabel(strings.replace)
-                    Button(action: replaceAll) {
-                        Text(strings.replaceAll)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.white.opacity(find.isEmpty ? 0.35 : 0.85))
-                            .padding(.horizontal, 10)
-                            .frame(height: 24)
-                            .background(.white.opacity(0.12), in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(find.isEmpty)
+                    replaceButton("arrow.left.arrow.right", title: strings.replace, action: replaceOne)
+                    replaceButton("arrow.left.arrow.right.square", title: strings.replaceAll, action: replaceAll)
                 }
             }
         }
@@ -213,6 +205,40 @@ struct NotchFindReplaceBar: View {
         case .success(nil), .failure:
             NSSound.beep()
         }
+    }
+
+    /// Replaces the selected match and moves on to the next one. When the
+    /// selection is not a match yet, it only goes to the next match, so the
+    /// first press shows what is about to change.
+    private func replaceOne() {
+        guard !find.isEmpty, let view = textView() else { return }
+        let selection = view.selectedRange()
+        switch TextToolsSupport.replacement(in: view.string, find: find, with: replacement,
+                                            at: selection, options: options) {
+        case .success(let text?):
+            view.replaceText(in: selection, with: text)
+            replacedNote = nil
+            // The next match, if any; running out is not an error here.
+            let caret = view.selectedRange().location
+            if case .success(let range?) = TextToolsSupport.nextMatch(in: view.string, find: find, from: caret,
+                                                                      options: options) {
+                view.setSelectedRange(range)
+                view.scrollRangeToVisible(range)
+                if range.length > 0 { view.showFindIndicator(for: range) }
+            }
+        case .success(nil):
+            step(backwards: false)
+        case .failure:
+            NSSound.beep()
+        }
+    }
+
+    /// An icon button like the ones in the search row; the words are the
+    /// tooltip and the accessibility label.
+    private func replaceButton(_ symbol: String, title: String, action: @escaping () -> Void) -> some View {
+        NotchIconButton(symbol: symbol, title: title, action: action)
+            .disabled(find.isEmpty)
+            .opacity(find.isEmpty ? 0.4 : 1)
     }
 
     private func replaceAll() {

@@ -49,7 +49,8 @@ struct NotchScratchpadView: View {
                         PlainTextEditor(text: $pad.text, fontSize: textSize,
                                         textColor: .white,
                                         textContainerInset: Self.editorInset,
-                                        usesFindBar: true) { view in
+                                        usesFindBar: true,
+                                        ownsUndoManager: true) { view in
                             view.insertionPointColor = .white
                             editor.view = view
                             DispatchQueue.main.async { focusEditor() }

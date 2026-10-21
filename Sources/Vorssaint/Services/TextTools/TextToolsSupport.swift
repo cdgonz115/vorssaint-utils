@@ -434,6 +434,20 @@ enum TextToolsSupport {
         }
     }
 
+    /// What the match at exactly `range` would be replaced with, or nil when
+    /// `range` is not a match (the selection is something else). It is how a
+    /// single Replace tells "replace this one" from "go to the next one". The
+    /// replacement follows the same rules as `replaceAll`, `$1` included.
+    static func replacement(in text: String, find: String, with replacement: String, at range: NSRange,
+                            options: ReplaceOptions = ReplaceOptions()) -> Result<String?, ReplaceFailure> {
+        expression(find: find, options: options).map { (regex: NSRegularExpression) -> String? in
+            let template = options.isRegex ? replacement : NSRegularExpression.escapedTemplate(for: replacement)
+            guard let match = regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
+                .first(where: { $0.range == range }) else { return nil }
+            return regex.replacementString(for: match, in: text, offset: 0, template: template)
+        }
+    }
+
     private static func expression(find: String,
                                    options: ReplaceOptions) -> Result<NSRegularExpression, ReplaceFailure> {
         guard !find.isEmpty else { return .failure(.emptyPattern) }

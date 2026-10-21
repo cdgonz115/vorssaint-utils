@@ -292,6 +292,7 @@ struct ScratchpadView: View {
                             textColor: .labelColor,
                             textContainerInset: Self.editorInset,
                             usesFindBar: true,
+                            ownsUndoManager: true,
                             onCreate: { ScratchpadService.shared.registerTextView($0) })
                 .opacity(service.isPreviewing ? 0 : 1)
                 .allowsHitTesting(!service.isPreviewing)

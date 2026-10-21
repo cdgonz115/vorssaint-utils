@@ -26,4 +26,14 @@ extension NSTextView {
         setSelectedRange(start)
         scrollRangeToVisible(start)
     }
+
+    /// Replaces one range through the same editing path, so it is one step in
+    /// the undo stack. The caret ends after the inserted text.
+    func replaceText(in range: NSRange, with replacement: String) {
+        if hasMarkedText() { unmarkText() }
+        guard shouldChangeText(in: range, replacementString: replacement) else { return }
+        replaceCharacters(in: range, with: replacement)
+        didChangeText()
+        setSelectedRange(NSRange(location: range.location + (replacement as NSString).length, length: 0))
+    }
 }

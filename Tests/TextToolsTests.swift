@@ -192,5 +192,27 @@ enum TextToolsTests {
             suite.expect(false, "^ is a valid pattern")
         }
         suite.expect(next(0, find: #"\d+"#, options: regex) == nil, "no digits, no match")
+        // Replacing the match at a range.
+        func one(_ range: NSRange, find: String = "ab", with replacement: String = "X", in source: String = text,
+                 options: TextToolsSupport.ReplaceOptions = literal) -> String? {
+            if case .success(let result) = TextToolsSupport.replacement(in: source, find: find, with: replacement,
+                                                                       at: range, options: options) {
+                return result
+            }
+            return nil
+        }
+        suite.expect(one(NSRange(location: 3, length: 2)) == "X", "a range that is a match gives its replacement")
+        suite.expect(one(NSRange(location: 1, length: 2)) == nil, "a range that is not a match gives nil")
+        suite.expect(one(NSRange(location: 3, length: 1)) == nil, "part of a match is not a match")
+        suite.expect(one(NSRange(location: 0, length: 3), find: #"(\d+)-(\d+)"#, with: "$2/$1", in: "12-34",
+                         options: regex) == nil,
+                     "the range has to be the whole match")
+        suite.expect(one(NSRange(location: 0, length: 5), find: #"(\d+)-(\d+)"#, with: "$2/$1", in: "12-34",
+                         options: regex) == "34/12",
+                     "regex replacements use capture groups")
+        suite.expect(one(NSRange(location: 0, length: 3), find: "cat", with: "$1", in: "cat") == "$1",
+                     "a literal replacement is taken as typed")
+        suite.expect(TextToolsSupport.replacement(in: text, find: "", with: "x", at: NSRange(location: 0, length: 0))
+                     == .failure(.emptyPattern), "an empty search is refused")
     }
 }
