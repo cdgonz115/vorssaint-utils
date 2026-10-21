@@ -114,8 +114,8 @@ struct NotchFindReplaceBar: View {
                         .onSubmit(replaceOne)
                         .onExitCommand(perform: onClose)
                         .accessibilityLabel(strings.replace)
-                    replaceButton("arrow.left.arrow.right", title: strings.replace, action: replaceOne)
-                    replaceButton("arrow.left.arrow.right.square", title: strings.replaceAll, action: replaceAll)
+                    replaceButton("arrowshape.turn.up.left", title: strings.replace, action: replaceOne)
+                    replaceButton("arrowshape.turn.up.left.2", title: strings.replaceAll, action: replaceAll)
                 }
             }
         }
