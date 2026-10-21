@@ -151,13 +151,22 @@ struct NotchClipboardEditorView: View {
         }
     }
 
-    /// Under the text on Formatted: Minify on the left, the type the text is
+    /// Under the text on Formatted, as two separate pieces: a settings menu on
+    /// the left (Minify for now, with room for more) and the type the text is
     /// read as on the right. Choosing a type lays the text out again, indented.
     private var formatFooter: some View {
-        HStack(spacing: 8) {
-            pill(text.minify, selected: model.minified) { model.minified.toggle() }
-                .opacity(model.dataType == .text ? 0.35 : 1)
-                .disabled(model.dataType == .text)
+        HStack(spacing: NotchLayout.rowSpacing) {
+            footerMenu(cornerRadius: NotchLayout.clipboardSearchHeight / 2, title: text.formatted) {
+                Toggle(text.minify, isOn: $model.minified)
+                    .disabled(model.dataType == .text)
+            } label: {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .frame(width: NotchLayout.clipboardSearchHeight,
+                           height: NotchLayout.clipboardSearchHeight)
+            }
+
             if !model.formattedText().isValid {
                 Text(invalidMessage)
                     .font(.system(size: 10.5))
@@ -165,7 +174,8 @@ struct NotchClipboardEditorView: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
-            Menu {
+
+            footerMenu(cornerRadius: 14, title: typeName(model.dataType)) {
                 ForEach(ClipboardEditorModel.DataType.allCases, id: \.self) { type in
                     Button {
                         model.dataType = type
@@ -186,18 +196,39 @@ struct NotchClipboardEditorView: View {
                 }
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(.white.opacity(0.85))
-                .padding(.horizontal, 10)
-                .frame(height: 24)
-                .background(.white.opacity(0.12), in: Capsule())
+                .padding(.horizontal, 12)
+                .frame(height: NotchLayout.clipboardSearchHeight)
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .accessibilityLabel(typeName(model.dataType))
         }
-        .padding(.horizontal, 12)
-        .frame(height: NotchLayout.clipboardSearchHeight)
-        .modifier(NotchControlSurface(cornerRadius: 14))
+    }
+
+    /// A menu drawn the way the toolbar's buttons are. The system menu styles
+    /// draw their own label and drop a background put on it, so the look is
+    /// drawn here and an invisible menu sits over it to take the click.
+    private func footerMenu<Items: View, Label: View>(
+        cornerRadius: CGFloat, title: String,
+        @ViewBuilder items: () -> Items,
+        @ViewBuilder label: () -> Label
+    ) -> some View {
+        label()
+            .modifier(NotchControlSurface(cornerRadius: cornerRadius))
+            .overlay {
+                Menu {
+                    items()
+                } label: {
+                    Color.clear
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                }
+                // The button style hands the whole frame to the label, so the
+                // click area is as big as the background. The borderless style
+                // only answers over the middle of a small control.
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+                .menuIndicator(.hidden)
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(title)
     }
 
     /// A small selectable label in the island's style.
