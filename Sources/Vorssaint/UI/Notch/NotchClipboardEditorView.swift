@@ -259,8 +259,24 @@ struct NotchClipboardEditorView: View {
 
     // MARK: - Text views
 
+    /// Raw: the text as it is.
     private var rawTextView: some View {
-        PlainTextEditor(text: $model.draft,
+        textEditor(text: $model.draft, handle: rawEditor)
+    }
+
+    /// The same text read as the chosen type, edited like Raw. The layout is
+    /// worked out again, and what was typed here dropped, when the text on
+    /// Raw, the type or Minify changes.
+    private var formattedTextView: some View {
+        textEditor(text: Binding(get: { model.formattedText().text },
+                                 set: { model.formattedEdit = $0 }),
+                   handle: formattedEditor)
+    }
+
+    /// The one editor both tabs are built from, so they look and behave the
+    /// same: anything set up here is set up for each.
+    private func textEditor(text: Binding<String>, handle: EditorHandle) -> some View {
+        PlainTextEditor(text: text,
                         fontSize: Self.fontSize,
                         textColor: .white,
                         textContainerInset: Self.editorInset,
@@ -270,24 +286,7 @@ struct NotchClipboardEditorView: View {
             // the proportional font back when the view updates.
             view.font = .monospacedSystemFont(ofSize: Self.fontSize, weight: .regular)
             view.insertionPointColor = .white
-            rawEditor.view = view
-            DispatchQueue.main.async { focusEditor() }
-        }
-    }
-
-    /// The same text read as the chosen type, edited like Raw. The layout is
-    /// worked out again, and what was typed here dropped, when the text on
-    /// Raw, the type or Minify changes.
-    private var formattedTextView: some View {
-        PlainTextEditor(text: Binding(get: { model.formattedText().text },
-                                      set: { model.formattedEdit = $0 }),
-                        fontSize: Self.fontSize,
-                        textColor: .white,
-                        textContainerInset: Self.editorInset,
-                        usesFindBar: false,
-                        ownsUndoManager: true) { view in
-            view.font = .monospacedSystemFont(ofSize: Self.fontSize, weight: .regular)
-            formattedEditor.view = view
+            handle.view = view
             DispatchQueue.main.async { focusEditor() }
         }
     }
