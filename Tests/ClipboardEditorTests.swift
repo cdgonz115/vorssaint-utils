@@ -180,6 +180,27 @@ enum ClipboardEditorTests {
         suite.expect(edited.outputText == (TextToolsSupport.prettyPrintJSON(#"{"z":2}"#) ?? "?"),
                      "Formatted follows what was typed on Raw")
 
+        // Formatted can be edited; the edit is what a close writes, and it is
+        // dropped when the text is laid out again.
+        let typed = ClipboardEditorModel(original: compact, source: .liveClipboard)
+        typed.tab = .formatted
+        typed.formattedEdit = "changed"
+        suite.expect(typed.formattedText().text == "changed" && typed.outputText == "changed"
+                        && typed.draft == compact,
+                     "an edit on Formatted is what it shows and writes, and Raw is untouched")
+        typed.tab = .raw
+        typed.tab = .formatted
+        suite.expect(typed.outputText == "changed", "the edit survives a trip to Raw and back")
+        typed.minified = true
+        suite.expect(typed.formattedEdit == nil && typed.outputText == compact,
+                     "changing the layout lays the text out again")
+        typed.formattedEdit = "again"
+        typed.dataType = .text
+        suite.expect(typed.formattedEdit == nil, "changing the type drops the edit")
+        typed.formattedEdit = "again"
+        typed.draft = #"{"q":1}"#
+        suite.expect(typed.formattedEdit == nil, "changing Raw drops it too")
+
         // Text that is not the chosen type is shown as it is, and flagged.
         let broken = ClipboardEditorModel(original: "not { json", source: .liveClipboard)
         suite.expect(broken.dataType == .text, "text that parses as nothing starts on Text")

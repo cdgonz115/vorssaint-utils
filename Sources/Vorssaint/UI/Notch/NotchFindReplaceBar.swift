@@ -24,9 +24,6 @@ struct NotchFindReplaceBar: View {
     /// Whether the replace row is showing. The owner holds it so a shortcut
     /// can show or hide it along with the bar.
     @Binding var showReplace: Bool
-    /// False when the text cannot be changed, so there is nothing to replace
-    /// into and the replace row is not offered.
-    var canReplace = true
     /// Esc inside either field: the owner puts the bar away.
     let onClose: () -> Void
 
@@ -57,24 +54,20 @@ struct NotchFindReplaceBar: View {
     var body: some View {
         VStack(spacing: 6) {
             HStack(spacing: 6) {
-                if canReplace {
-                    Button {
-                        showReplace.toggle()
-                        if !showReplace { findFocused = true }
-                    } label: {
-                        Image(systemName: showReplace ? "chevron.down" : "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.55))
-                            .frame(width: 16, height: 28)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .help(strings.replace)
-                    .accessibilityLabel(strings.replace)
-                    .accessibilityAddTraits(showReplace ? .isSelected : [])
-                } else {
-                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                Button {
+                    showReplace.toggle()
+                    if !showReplace { findFocused = true }
+                } label: {
+                    Image(systemName: showReplace ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .frame(width: 16, height: 28)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .help(strings.replace)
+                .accessibilityLabel(strings.replace)
+                .accessibilityAddTraits(showReplace ? .isSelected : [])
                 TextField(strings.find, text: $find)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12, design: .monospaced))
@@ -103,7 +96,7 @@ struct NotchFindReplaceBar: View {
                 }
                 RegexToggle(title: strings.regex, isOn: $isRegex)
             }
-            if showReplace && canReplace {
+            if showReplace {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.turn.down.right")
                         .foregroundStyle(.secondary)

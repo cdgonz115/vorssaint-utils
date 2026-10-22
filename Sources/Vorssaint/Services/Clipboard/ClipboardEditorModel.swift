@@ -48,9 +48,10 @@ final class ClipboardEditorModel: ObservableObject {
 
     /// Which view is showing, and so which text a close writes back.
     enum Tab: Equatable {
-        /// The text exactly as it is, and the only one that can be typed in.
+        /// The text exactly as it is.
         case raw
-        /// The same text read as a chosen type and laid out to match.
+        /// The same text read as a chosen type and laid out to match. It can
+        /// be edited too; see `formattedEdit`.
         case formatted
     }
 
@@ -88,12 +89,23 @@ final class ClipboardEditorModel: ObservableObject {
     let source: Source
     /// What the text was when the editor opened, or as of the last commit.
     private(set) var original: String
-    /// The text being edited. Only the Raw tab changes it.
-    @Published var draft: String
+    /// The text being edited on Raw. A change here lays Formatted out again.
+    @Published var draft: String {
+        didSet { if draft != oldValue { formattedEdit = nil } }
+    }
     @Published var tab: Tab = .raw
-    @Published var dataType: DataType
+    @Published var dataType: DataType {
+        didSet { if dataType != oldValue { formattedEdit = nil } }
+    }
     /// Compact instead of indented. Plain text has no compact form.
-    @Published var minified = false
+    @Published var minified = false {
+        didSet { if minified != oldValue { formattedEdit = nil } }
+    }
+    /// What was typed or replaced on Formatted. Formatted is worked out from
+    /// the draft, so its edits live beside it rather than in it: they are kept
+    /// while the person moves between tabs, and dropped when the draft, the
+    /// type or the layout changes, since the text is then laid out afresh.
+    @Published var formattedEdit: String?
 
     private var isCommitting = false
     private var formattedCache: (key: FormatKey, value: FormattedText)?
@@ -115,6 +127,12 @@ final class ClipboardEditorModel: ObservableObject {
     /// remembered, since a large document is not cheap to lay out and the
     /// view asks again whenever anything on the page changes.
     func formattedText() -> FormattedText {
+        let generated = generatedFormattedText()
+        guard let formattedEdit else { return generated }
+        return FormattedText(text: formattedEdit, isValid: generated.isValid)
+    }
+
+    private func generatedFormattedText() -> FormattedText {
         let key = FormatKey(draft: draft, dataType: dataType, minified: minified)
         if let cached = formattedCache, cached.key == key { return cached.value }
         let value: FormattedText
@@ -133,7 +151,7 @@ final class ClipboardEditorModel: ObservableObject {
 
     /// What closing the editor would write: what the open tab shows. Looking at
     /// Formatted and closing therefore keeps the formatted text, and Raw never
-    /// changes anything but what was typed.
+    /// changes anything but what was typed on it.
     var outputText: String {
         tab == .raw ? draft : formattedText().text
     }

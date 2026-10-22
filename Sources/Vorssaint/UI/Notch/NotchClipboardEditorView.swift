@@ -57,8 +57,7 @@ struct NotchClipboardEditorView: View {
 
             if showFind {
                 NotchFindReplaceBar(textView: { activeView }, text: model.outputText,
-                                    showReplace: $showReplace, canReplace: model.tab == .raw,
-                                    onClose: closeFind)
+                                    showReplace: $showReplace, onClose: closeFind)
             }
 
             ZStack {
@@ -276,17 +275,17 @@ struct NotchClipboardEditorView: View {
         }
     }
 
-    /// The same text read as the chosen type. It cannot be typed in: it is
-    /// worked out from Raw, so a change here would be lost the next time
-    /// anything on Raw or in the options changed.
+    /// The same text read as the chosen type, edited like Raw. The layout is
+    /// worked out again, and what was typed here dropped, when the text on
+    /// Raw, the type or Minify changes.
     private var formattedTextView: some View {
-        PlainTextEditor(text: .constant(model.formattedText().text),
+        PlainTextEditor(text: Binding(get: { model.formattedText().text },
+                                      set: { model.formattedEdit = $0 }),
                         fontSize: Self.fontSize,
                         textColor: .white,
                         textContainerInset: Self.editorInset,
                         usesFindBar: false,
-                        ownsUndoManager: true,
-                        isEditable: false) { view in
+                        ownsUndoManager: true) { view in
             view.font = .monospacedSystemFont(ofSize: Self.fontSize, weight: .regular)
             formattedEditor.view = view
             DispatchQueue.main.async { focusEditor() }
@@ -301,8 +300,6 @@ struct NotchClipboardEditorView: View {
         model.tab = tab
         // Opening Formatted starts from the indented layout.
         if tab == .formatted { model.minified = false }
-        // Formatted cannot be replaced into, so its replace row is put away.
-        if tab == .formatted { showReplace = false }
         DispatchQueue.main.async { focusEditor() }
     }
 
@@ -318,13 +315,8 @@ struct NotchClipboardEditorView: View {
         }
     }
 
-    /// Command-R: everything out, or everything away. Formatted has nothing to
-    /// replace into, so there it only opens or closes the find row.
+    /// Command-R: everything out, or everything away.
     private func toggleFindAndReplace() {
-        guard model.tab == .raw else {
-            if showFind { closeFind() } else { showFind = true }
-            return
-        }
         if showFind && showReplace {
             closeFind()
         } else {
@@ -350,7 +342,9 @@ struct NotchClipboardEditorView: View {
 
     /// Text an input method is still composing is not in the draft yet.
     private func flushComposition() {
-        if let view = rawEditor.view, view.hasMarkedText() { view.unmarkText() }
+        for view in [rawEditor.view, formattedEditor.view] {
+            if let view, view.hasMarkedText() { view.unmarkText() }
+        }
     }
 
     /// The caret starts at the top, where the beginning of the data is.

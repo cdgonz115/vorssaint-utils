@@ -56,9 +56,6 @@ struct PlainTextEditor: NSViewRepresentable {
     /// into it crashes. A view that is created and destroyed as pages change,
     /// like the island's, should not share one.
     var ownsUndoManager = false
-    /// False for a view of text that something else produces: it can be
-    /// selected, copied and searched, but not typed in.
-    var isEditable = true
     /// Handed the text view once, for callers that need to reach it later.
     var onCreate: ((NSTextView) -> Void)?
 
@@ -69,7 +66,6 @@ struct PlainTextEditor: NSViewRepresentable {
          textContainerInset: NSSize? = nil,
          usesFindBar: Bool = false,
          ownsUndoManager: Bool = false,
-         isEditable: Bool = true,
          onCreate: ((NSTextView) -> Void)? = nil) {
         self._text = text
         self.fontSize = fontSize
@@ -78,7 +74,6 @@ struct PlainTextEditor: NSViewRepresentable {
         self.textContainerInset = textContainerInset
         self.usesFindBar = usesFindBar
         self.ownsUndoManager = ownsUndoManager
-        self.isEditable = isEditable
         self.onCreate = onCreate
     }
 
@@ -92,7 +87,6 @@ struct PlainTextEditor: NSViewRepresentable {
         textView.font = .systemFont(ofSize: fontSize)
         textView.textContainer?.lineFragmentPadding = Self.lineFragmentPadding
         textView.allowsUndo = true
-        textView.isEditable = isEditable
         textView.isRichText = false
         textView.importsGraphics = false
         textView.usesFontPanel = false
