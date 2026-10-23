@@ -552,6 +552,8 @@ enum DefaultsKey {
     static let clipboardEditorEnabled = "clipboardEditorEnabled"
     static let clipboardEditorDefaultView = "clipboardEditorDefaultView" // "history" or "editor"
     static let clipboardEditorNoticeView = "clipboardEditorNoticeView" // what the "Copied" notice opens: "history" or "editor"
+    static let clipboardEditorColorJSON = "clipboardEditorColorJSON" // syntax colors for JSON in the editor's Formatted tab
+    static let clipboardEditorColorXML = "clipboardEditorColorXML" // the same for XML
 
     static let windowPreviewExcludedApps = "windowPreviewExcludedApps" // pause Dock Preview thumbnail capture while these apps are in front (once shared with the app switcher)
     static let switcherPreviewExcludedApps = "switcherPreviewExcludedApps" // pause app switcher thumbnail capture while these apps are in front
@@ -1645,6 +1647,8 @@ enum Defaults {
         DefaultsKey.clipboardEditorEnabled: true,
         DefaultsKey.clipboardEditorDefaultView: ClipboardOpenView.history.rawValue,
         DefaultsKey.clipboardEditorNoticeView: ClipboardOpenView.editor.rawValue,
+        DefaultsKey.clipboardEditorColorJSON: true,
+        DefaultsKey.clipboardEditorColorXML: true,
         DefaultsKey.clipboardAutoClearOnDelay: false,
         DefaultsKey.clipboardAutoClearDelay: Defaults.defaultClipboardAutoClearDelay,
         DefaultsKey.clipboardAutoClearOnSleep: false,

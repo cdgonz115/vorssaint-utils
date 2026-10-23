@@ -34,6 +34,9 @@ struct NotchClipboardEditorView: View {
     /// The replace row stays out of the way until it is asked for, as in a
     /// code editor: most searches are only searches.
     @State private var showReplace = false
+    // Read here so turning colors on or off in settings shows up at once.
+    @AppStorage(DefaultsKey.clipboardEditorColorJSON) private var colorJSON = true
+    @AppStorage(DefaultsKey.clipboardEditorColorXML) private var colorXML = true
     private var text: ClipboardEditorStrings { FeatureStrings.clipboardEditor(l10n.language) }
     private var toolsText: TextToolsStrings { FeatureStrings.textTools(l10n.language) }
 
@@ -270,18 +273,52 @@ struct NotchClipboardEditorView: View {
     private var formattedTextView: some View {
         textEditor(text: Binding(get: { model.formattedText().text },
                                  set: { model.formattedEdit = $0 }),
-                   handle: formattedEditor)
+                   handle: formattedEditor, highlighting: formattedHighlighting)
+    }
+
+    /// Colors for the type the text is read as, when that type has them on and
+    /// the text is that type. Text that is not (it is shown as it is) stays
+    /// plain, so the colors never claim more than is true.
+    private var formattedHighlighting: PlainTextEditor.Highlighting? {
+        guard let format = model.dataType.structured, model.formattedText().isValid else { return nil }
+        switch format {
+        case .json: guard colorJSON else { return nil }
+        case .xml: guard colorXML else { return nil }
+        }
+        return PlainTextEditor.Highlighting(id: "\(format)") { text in
+            SyntaxHighlightSupport.tokens(in: text, format: format).map {
+                ($0.range, Self.color(for: $0.kind))
+            }
+        }
+    }
+
+    /// Chosen to read on the island's dark background.
+    private static func color(for kind: SyntaxHighlightSupport.Kind) -> NSColor {
+        func rgb(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat) -> NSColor {
+            NSColor(srgbRed: r / 255, green: g / 255, blue: b / 255, alpha: 1)
+        }
+        switch kind {
+        case .key, .tag: return rgb(125, 190, 255)
+        case .string, .value: return rgb(240, 170, 120)
+        case .number: return rgb(150, 215, 140)
+        case .literal: return rgb(205, 150, 235)
+        case .attribute: return rgb(230, 215, 130)
+        case .punctuation: return NSColor.white.withAlphaComponent(0.5)
+        case .comment: return NSColor.white.withAlphaComponent(0.4)
+        }
     }
 
     /// The one editor both tabs are built from, so they look and behave the
     /// same: anything set up here is set up for each.
-    private func textEditor(text: Binding<String>, handle: EditorHandle) -> some View {
+    private func textEditor(text: Binding<String>, handle: EditorHandle,
+                            highlighting: PlainTextEditor.Highlighting? = nil) -> some View {
         PlainTextEditor(text: text,
                         fontSize: Self.fontSize,
                         textColor: .white,
                         textContainerInset: Self.editorInset,
                         usesFindBar: false,
-                        ownsUndoManager: true) { view in
+                        ownsUndoManager: true,
+                        highlighting: highlighting) { view in
             // Same point size as the editor's own font, so it does not put
             // the proportional font back when the view updates.
             view.font = .monospacedSystemFont(ofSize: Self.fontSize, weight: .regular)

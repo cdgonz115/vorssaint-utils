@@ -46,3 +46,19 @@ enum ClipboardOpenView: String, CaseIterable {
         UserDefaults.standard.bool(forKey: DefaultsKey.clipboardEditorEnabled)
     }
 }
+
+/// Which formats the editor's Formatted tab colors. Each one is its own
+/// switch, so a format that is not wanted costs nothing, and a new format
+/// is one more case and one more key.
+enum ClipboardEditorColors {
+    static func key(for format: TextToolsSupport.Format) -> String {
+        switch format {
+        case .json: return DefaultsKey.clipboardEditorColorJSON
+        case .xml: return DefaultsKey.clipboardEditorColorXML
+        }
+    }
+
+    static func isEnabled(_ format: TextToolsSupport.Format, defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: key(for: format))
+    }
+}

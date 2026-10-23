@@ -16,6 +16,7 @@ enum TextToolsTests {
         suite.run("text tools detection") { detection(suite) }
         suite.run("text tools replace") { replace(suite) }
         suite.run("text tools navigation") { navigation(suite) }
+        suite.run("text tools syntax") { syntax(suite) }
     }
 
     private static func json(_ suite: TestSuite) {
@@ -214,5 +215,55 @@ enum TextToolsTests {
                      "a literal replacement is taken as typed")
         suite.expect(TextToolsSupport.replacement(in: text, find: "", with: "x", at: NSRange(location: 0, length: 0))
                      == .failure(.emptyPattern), "an empty search is refused")
+    }
+
+    private static func syntax(_ suite: TestSuite) {
+        typealias Token = SyntaxHighlightSupport.Token
+        func tokens(_ text: String, _ format: TextToolsSupport.Format) -> [Token] {
+            SyntaxHighlightSupport.tokens(in: text, format: format)
+        }
+        func kinds(_ text: String, _ format: TextToolsSupport.Format) -> [SyntaxHighlightSupport.Kind] {
+            tokens(text, format).map(\.kind)
+        }
+
+        // {"a": [1, true]}
+        suite.expect(kinds(#"{"a": [1, true]}"#, .json)
+                     == [.punctuation, .key, .punctuation, .punctuation, .number, .punctuation, .literal,
+                         .punctuation, .punctuation],
+                     "json: keys, numbers, literals and punctuation are told apart")
+        suite.expect(kinds(#"{"a":"b"}"#, .json) == [.punctuation, .key, .punctuation, .string, .punctuation],
+                     "json: a string before a colon is a key, after it a value")
+        suite.expect(tokens(#"["x"]"#, .json)[1] == Token(range: NSRange(location: 1, length: 3), kind: .string),
+                     "json: a string token covers its quotes")
+        suite.expect(kinds(#"["a\"b"]"#, .json) == [.punctuation, .string, .punctuation],
+                     "json: an escaped quote does not end the string")
+        suite.expect(tokens("[-1.5e3]", .json)[1] == Token(range: NSRange(location: 1, length: 6), kind: .number),
+                     "json: a number takes its sign, fraction and exponent")
+        suite.expect(kinds("[nope]", .json) == [.punctuation, .punctuation],
+                     "json: a word that is not true, false or null is left plain")
+        suite.expect(kinds(#"{"a": "unclosed"#, .json) == [.punctuation, .key, .punctuation, .string],
+                     "json: half-typed text is colored as far as it goes")
+
+        suite.expect(kinds("<a b=\"c\">d</a>", .xml)
+                     == [.punctuation, .tag, .attribute, .punctuation, .string, .punctuation, .value,
+                         .punctuation, .tag, .punctuation],
+                     "xml: tag, attribute, value and punctuation are told apart")
+        suite.expect(kinds("<a/>", .xml) == [.punctuation, .tag, .punctuation, .punctuation],
+                     "xml: a self-closing tag")
+        suite.expect(kinds("<!-- x --><a/>", .xml).first == .comment, "xml: comments")
+        suite.expect(kinds("<a><![CDATA[<b>]]></a>", .xml).contains(.value), "xml: CDATA is a value")
+        suite.expect(kinds("<?xml version=\"1.0\"?>", .xml)
+                     == [.punctuation, .tag, .attribute, .punctuation, .string, .punctuation, .punctuation],
+                     "xml: the declaration")
+        suite.expect(tokens("<a>  x y  </a>", .xml)[3] == Token(range: NSRange(location: 5, length: 3), kind: .value),
+                     "xml: text between tags leaves out the whitespace around it")
+        suite.expect(!kinds("<a b=\"c", .xml).isEmpty, "xml: an unclosed tag does not stop the scan")
+
+        // Offsets are UTF-16 units, as AppKit counts them.
+        suite.expect(tokens("[\"é😀\", 1]", .json).last?.range == NSRange(location: 9, length: 1),
+                     "ranges count UTF-16 units, so an emoji is two")
+        suite.expect(tokens(String(repeating: "1", count: SyntaxHighlightSupport.maximumLength + 1), .json).isEmpty,
+                     "text over the limit is left uncolored")
+        suite.expect(tokens("", .json).isEmpty && tokens("", .xml).isEmpty, "empty text has nothing to color")
     }
 }

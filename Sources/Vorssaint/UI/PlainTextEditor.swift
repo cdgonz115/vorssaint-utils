@@ -56,6 +56,21 @@ struct PlainTextEditor: NSViewRepresentable {
     /// into it crashes. A view that is created and destroyed as pages change,
     /// like the island's, should not share one.
     var ownsUndoManager = false
+    /// Colors parts of the text: the ranges to color and the color of each,
+    /// asked for after every change. The text itself is untouched (colors are
+    /// attributes, which neither the binding nor undo ever sees), and
+    /// everything outside the ranges keeps the editor's text color.
+    ///
+    /// A struct rather than a bare closure, so a trailing closure at a call
+    /// site still means `onCreate`.
+    struct Highlighting {
+        /// Names what `spans` was built from. The text is colored again when
+        /// this changes without the text changing, as when a setting turns
+        /// colors on or off; a closure cannot be compared, so the caller says.
+        let id: String
+        let spans: (String) -> [(range: NSRange, color: NSColor)]
+    }
+    var highlighting: Highlighting?
     /// Handed the text view once, for callers that need to reach it later.
     var onCreate: ((NSTextView) -> Void)?
 
@@ -66,6 +81,7 @@ struct PlainTextEditor: NSViewRepresentable {
          textContainerInset: NSSize? = nil,
          usesFindBar: Bool = false,
          ownsUndoManager: Bool = false,
+         highlighting: Highlighting? = nil,
          onCreate: ((NSTextView) -> Void)? = nil) {
         self._text = text
         self.fontSize = fontSize
@@ -74,6 +90,7 @@ struct PlainTextEditor: NSViewRepresentable {
         self.textContainerInset = textContainerInset
         self.usesFindBar = usesFindBar
         self.ownsUndoManager = ownsUndoManager
+        self.highlighting = highlighting
         self.onCreate = onCreate
     }
 
@@ -108,6 +125,9 @@ struct PlainTextEditor: NSViewRepresentable {
             textView.textContainerInset = textContainerInset
         }
         textView.string = text
+        context.coordinator.baseColor = textColor ?? .labelColor
+        context.coordinator.highlighting = highlighting
+        context.coordinator.applyHighlighting(to: textView)
         // Delegate last: assigning .string posts a selection notification
         // synchronously, and makeNSView runs inside SwiftUI's update pass,
         // where writing state is undefined behavior.
@@ -123,7 +143,13 @@ struct PlainTextEditor: NSViewRepresentable {
         if textView.font?.pointSize != fontSize {
             textView.font = .systemFont(ofSize: fontSize)
         }
-        guard textView.string != text, !textView.hasMarkedText() else { return }
+        let coordinator = context.coordinator
+        let highlightChanged = coordinator.highlighting?.id != highlighting?.id
+        coordinator.highlighting = highlighting
+        guard textView.string != text, !textView.hasMarkedText() else {
+            if highlightChanged { coordinator.applyHighlighting(to: textView) }
+            return
+        }
         // Setting .string posts a selection notification, and answering it
         // here would write state from inside a view update.
         context.coordinator.isApplyingExternalText = true
@@ -133,6 +159,7 @@ struct PlainTextEditor: NSViewRepresentable {
         // entries recorded against the old storage; replaying one would
         // resurrect cleared text or throw a range exception.
         textView.undoManager?.removeAllActions()
+        coordinator.applyHighlighting(to: textView)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -143,6 +170,12 @@ struct PlainTextEditor: NSViewRepresentable {
         private let text: Binding<String>
         private let selectedRange: Binding<Range<Int>?>?
         var isApplyingExternalText = false
+        /// What the text is drawn in outside any colored range.
+        var baseColor: NSColor = .labelColor
+        var highlighting: PlainTextEditor.Highlighting?
+        /// Whether colors are on the text now, so turning them off puts the
+        /// base color back and an editor that never colors does no work.
+        private var isColored = false
         /// Nil unless the editor asked for its own history. The coordinator
         /// lives exactly as long as the editor, so the history goes with it.
         private let ownUndoManager: UndoManager?
@@ -165,6 +198,30 @@ struct PlainTextEditor: NSViewRepresentable {
             let current = textView.string
             if text.wrappedValue != current { text.wrappedValue = current }
             publishSelection(of: textView, in: current)
+            applyHighlighting(to: textView)
+        }
+
+        /// Colors the text as the highlighting says, or clears the colors.
+        /// Only attributes change, outside the editing path, so this is not an
+        /// edit: no change notification, nothing on the undo stack.
+        func applyHighlighting(to textView: NSTextView) {
+            guard let storage = textView.textStorage else { return }
+            guard let highlighting else {
+                if isColored {
+                    storage.addAttribute(.foregroundColor, value: baseColor,
+                                         range: NSRange(location: 0, length: storage.length))
+                    isColored = false
+                }
+                return
+            }
+            let length = storage.length
+            storage.beginEditing()
+            storage.addAttribute(.foregroundColor, value: baseColor, range: NSRange(location: 0, length: length))
+            for span in highlighting.spans(textView.string) where NSMaxRange(span.range) <= length {
+                storage.addAttribute(.foregroundColor, value: span.color, range: span.range)
+            }
+            storage.endEditing()
+            isColored = true
         }
 
         /// Publishes the caret only. Never writes the text binding: a caret
