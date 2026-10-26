@@ -34,9 +34,11 @@ struct NotchClipboardEditorView: View {
     /// The replace row stays out of the way until it is asked for, as in a
     /// code editor: most searches are only searches.
     @State private var showReplace = false
-    // Read here so turning colors on or off in settings shows up at once.
-    @AppStorage(DefaultsKey.clipboardEditorColorJSON) private var colorJSON = true
-    @AppStorage(DefaultsKey.clipboardEditorColorXML) private var colorXML = true
+    // Read here so a change in the text editor's settings shows up at once.
+    @AppStorage(DefaultsKey.textEditorFormatJSON) private var formatJSON = true
+    @AppStorage(DefaultsKey.textEditorFormatXML) private var formatXML = true
+    @AppStorage(DefaultsKey.textEditorColorsJSON) private var colorsJSON = ""
+    @AppStorage(DefaultsKey.textEditorColorsXML) private var colorsXML = ""
     private var text: ClipboardEditorStrings { FeatureStrings.clipboardEditor(l10n.language) }
     private var toolsText: TextToolsStrings { FeatureStrings.textTools(l10n.language) }
 
@@ -178,7 +180,7 @@ struct NotchClipboardEditorView: View {
             Spacer(minLength: 0)
 
             footerMenu(cornerRadius: 14, title: typeName(model.dataType)) {
-                ForEach(ClipboardEditorModel.DataType.allCases, id: \.self) { type in
+                ForEach(availableTypes, id: \.self) { type in
                     Button {
                         model.dataType = type
                         model.minified = false
@@ -276,36 +278,44 @@ struct NotchClipboardEditorView: View {
                    handle: formattedEditor, highlighting: formattedHighlighting)
     }
 
-    /// Colors for the type the text is read as, when that type has them on and
-    /// the text is that type. Text that is not (it is shown as it is) stays
-    /// plain, so the colors never claim more than is true.
-    private var formattedHighlighting: PlainTextEditor.Highlighting? {
-        guard let format = model.dataType.structured, model.formattedText().isValid else { return nil }
-        switch format {
-        case .json: guard colorJSON else { return nil }
-        case .xml: guard colorXML else { return nil }
-        }
-        return PlainTextEditor.Highlighting(id: "\(format)") { text in
-            SyntaxHighlightSupport.tokens(in: text, format: format).map {
-                ($0.range, Self.color(for: $0.kind))
+    /// Text, and each format that is switched on in the text editor's settings.
+    private var availableTypes: [ClipboardEditorModel.DataType] {
+        ClipboardEditorModel.DataType.allCases.filter { type in
+            switch type.structured {
+            case nil: return true
+            case .json?: return formatJSON
+            case .xml?: return formatXML
             }
         }
     }
 
-    /// Chosen to read on the island's dark background.
-    private static func color(for kind: SyntaxHighlightSupport.Kind) -> NSColor {
-        func rgb(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat) -> NSColor {
-            NSColor(srgbRed: r / 255, green: g / 255, blue: b / 255, alpha: 1)
+    /// Colors for the type the text is read as, when that format is on and the
+    /// text is that type. Text that is not (it is shown as it is) stays plain,
+    /// so the colors never claim more than is true.
+    private var formattedHighlighting: PlainTextEditor.Highlighting? {
+        guard let format = model.dataType.structured, model.formattedText().isValid else { return nil }
+        let stored: String
+        switch format {
+        case .json:
+            guard formatJSON else { return nil }
+            stored = colorsJSON
+        case .xml:
+            guard formatXML else { return nil }
+            stored = colorsXML
         }
-        switch kind {
-        case .key, .tag: return rgb(125, 190, 255)
-        case .string, .value: return rgb(240, 170, 120)
-        case .number: return rgb(150, 215, 140)
-        case .literal: return rgb(205, 150, 235)
-        case .attribute: return rgb(230, 215, 130)
-        case .punctuation: return NSColor.white.withAlphaComponent(0.5)
-        case .comment: return NSColor.white.withAlphaComponent(0.4)
+        let palette = TextEditorPreferences.palette(for: format, stored: stored).mapValues(Self.color(hex:))
+        // The stored colors are part of the identity, so changing one in
+        // settings colors the text again.
+        return PlainTextEditor.Highlighting(id: "\(format)\(stored)") { text in
+            SyntaxHighlightSupport.tokens(in: text, format: format).compactMap { token in
+                palette[token.kind].map { (token.range, $0) }
+            }
         }
+    }
+
+    private static func color(hex: String) -> NSColor {
+        guard let value = ColorValue(text: hex) else { return .white }
+        return NSColor(srgbRed: value.red, green: value.green, blue: value.blue, alpha: 1)
     }
 
     /// The one editor both tabs are built from, so they look and behave the

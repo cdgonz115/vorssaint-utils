@@ -27,8 +27,6 @@ struct ClipboardSettings: View {
     @AppStorage(DefaultsKey.clipboardAutoClearOnDisplaySleep) private var autoClearOnDisplaySleep = false
     @AppStorage(DefaultsKey.clipboardAutoClearOnScreenLock) private var autoClearOnScreenLock = false
     @AppStorage(DefaultsKey.clipboardEditorEnabled) private var editorEnabled = true
-    @AppStorage(DefaultsKey.clipboardEditorColorJSON) private var editorColorJSON = true
-    @AppStorage(DefaultsKey.clipboardEditorColorXML) private var editorColorXML = true
     @AppStorage(DefaultsKey.clipboardEditorDefaultView)
     private var editorDefaultView = ClipboardOpenView.history.rawValue
     @AppStorage(DefaultsKey.clipboardEditorNoticeView)
@@ -253,14 +251,6 @@ struct ClipboardSettings: View {
             Text(editorText.defaultViewCaption)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            LabeledContent(editorText.syntaxColors) {
-                HStack(spacing: 12) {
-                    Toggle("JSON", isOn: $editorColorJSON)
-                    Toggle("XML", isOn: $editorColorXML)
-                }
-                .toggleStyle(.checkbox)
-            }
-            .disabled(!editorEnabled)
         }
         .settingsFormSectionAnchor(.clipboardEditor)
     }

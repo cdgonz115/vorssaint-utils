@@ -552,8 +552,12 @@ enum DefaultsKey {
     static let clipboardEditorEnabled = "clipboardEditorEnabled"
     static let clipboardEditorDefaultView = "clipboardEditorDefaultView" // "history" or "editor"
     static let clipboardEditorNoticeView = "clipboardEditorNoticeView" // what the "Copied" notice opens: "history" or "editor"
-    static let clipboardEditorColorJSON = "clipboardEditorColorJSON" // syntax colors for JSON in the editor's Formatted tab
-    static let clipboardEditorColorXML = "clipboardEditorColorXML" // the same for XML
+    // The shared text editor: a switch per format, and the colors changed for it
+    // (a JSON object of kind -> "#RRGGBB"; empty when none were).
+    static let textEditorFormatJSON = "textEditorFormatJSON"
+    static let textEditorFormatXML = "textEditorFormatXML"
+    static let textEditorColorsJSON = "textEditorColorsJSON"
+    static let textEditorColorsXML = "textEditorColorsXML"
 
     static let windowPreviewExcludedApps = "windowPreviewExcludedApps" // pause Dock Preview thumbnail capture while these apps are in front (once shared with the app switcher)
     static let switcherPreviewExcludedApps = "switcherPreviewExcludedApps" // pause app switcher thumbnail capture while these apps are in front
@@ -1647,8 +1651,10 @@ enum Defaults {
         DefaultsKey.clipboardEditorEnabled: true,
         DefaultsKey.clipboardEditorDefaultView: ClipboardOpenView.history.rawValue,
         DefaultsKey.clipboardEditorNoticeView: ClipboardOpenView.editor.rawValue,
-        DefaultsKey.clipboardEditorColorJSON: true,
-        DefaultsKey.clipboardEditorColorXML: true,
+        DefaultsKey.textEditorFormatJSON: true,
+        DefaultsKey.textEditorFormatXML: true,
+        DefaultsKey.textEditorColorsJSON: "",
+        DefaultsKey.textEditorColorsXML: "",
         DefaultsKey.clipboardAutoClearOnDelay: false,
         DefaultsKey.clipboardAutoClearDelay: Defaults.defaultClipboardAutoClearDelay,
         DefaultsKey.clipboardAutoClearOnSleep: false,

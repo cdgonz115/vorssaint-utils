@@ -147,12 +147,15 @@ enum ClipboardEditorTests {
         suite.expect(!model.hasChanges, "after a commit the editor has nothing pending")
     }
 
+    /// Every format on, so these do not depend on what the machine running them has set.
+    private static let allFormats: (TextToolsSupport.Format) -> Bool = { _ in true }
+
     private static func tabs(_ suite: TestSuite) {
         let compact = #"{"a":1,"b":[1,2]}"#
         let pretty = TextToolsSupport.prettyPrintJSON(compact) ?? ""
         let entry = ClipboardHistoryEntry(text: compact)
         let history = FakeHistory([entry])
-        let model = ClipboardEditorModel(original: compact, source: .entry(entry.id))
+        let model = ClipboardEditorModel(original: compact, source: .entry(entry.id), isFormatEnabled: allFormats)
 
         suite.expect(model.tab == .raw && model.dataType == .json && !model.minified,
                      "the editor opens on Raw, set to the type the text parses as")
@@ -174,7 +177,7 @@ enum ClipboardEditorTests {
         suite.expect(commit(model, history) == .unchanged, "a second close has nothing left to write")
 
         // Edits on Raw are re-read the next time Formatted is shown.
-        let edited = ClipboardEditorModel(original: compact, source: .liveClipboard)
+        let edited = ClipboardEditorModel(original: compact, source: .liveClipboard, isFormatEnabled: allFormats)
         edited.draft = #"{"z":2}"#
         edited.tab = .formatted
         suite.expect(edited.outputText == (TextToolsSupport.prettyPrintJSON(#"{"z":2}"#) ?? "?"),
@@ -182,7 +185,7 @@ enum ClipboardEditorTests {
 
         // Formatted can be edited; the edit is what a close writes, and it is
         // dropped when the text is laid out again.
-        let typed = ClipboardEditorModel(original: compact, source: .liveClipboard)
+        let typed = ClipboardEditorModel(original: compact, source: .liveClipboard, isFormatEnabled: allFormats)
         typed.tab = .formatted
         typed.formattedEdit = "changed"
         suite.expect(typed.formattedText().text == "changed" && typed.outputText == "changed"
@@ -202,7 +205,7 @@ enum ClipboardEditorTests {
         suite.expect(typed.formattedEdit == nil, "changing Raw drops it too")
 
         // Text that is not the chosen type is shown as it is, and flagged.
-        let broken = ClipboardEditorModel(original: "not { json", source: .liveClipboard)
+        let broken = ClipboardEditorModel(original: "not { json", source: .liveClipboard, isFormatEnabled: allFormats)
         suite.expect(broken.dataType == .text, "text that parses as nothing starts on Text")
         broken.dataType = .json
         broken.tab = .formatted
@@ -215,11 +218,19 @@ enum ClipboardEditorTests {
                      "Text is always valid and unchanged, even minified")
 
         // Already-formatted text has nothing to change.
-        let tidy = ClipboardEditorModel(original: pretty, source: .liveClipboard)
+        let tidy = ClipboardEditorModel(original: pretty, source: .liveClipboard, isFormatEnabled: allFormats)
         tidy.tab = .formatted
         suite.expect(tidy.outputText == pretty && !tidy.hasChanges, "formatting formatted text changes nothing")
 
-        let xml = ClipboardEditorModel(original: "<a><b>1</b></a>", source: .liveClipboard)
+        // A format that is switched off is never picked, whatever the text is.
+        let jsonOff = ClipboardEditorModel(original: compact, source: .liveClipboard,
+                                           isFormatEnabled: { $0 != .json })
+        suite.expect(jsonOff.dataType == .text, "JSON switched off: JSON text starts on Text")
+        let xmlOnly = ClipboardEditorModel(original: "<a/>", source: .liveClipboard,
+                                           isFormatEnabled: { $0 != .json })
+        suite.expect(xmlOnly.dataType == .xml, "and XML is still found")
+
+        let xml = ClipboardEditorModel(original: "<a><b>1</b></a>", source: .liveClipboard, isFormatEnabled: allFormats)
         suite.expect(xml.dataType == .xml, "XML is detected too")
         xml.tab = .formatted
         suite.expect(xml.formattedText().isValid && xml.outputText.contains("\n"), "and laid out on lines")

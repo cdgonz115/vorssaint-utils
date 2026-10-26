@@ -18,7 +18,7 @@ import Foundation
 /// a kind says what a range is, not what it looks like. Ranges are in UTF-16
 /// units, as AppKit uses.
 enum SyntaxHighlightSupport {
-    enum Kind: Equatable {
+    enum Kind: String, CaseIterable {
         /// A JSON object key.
         case key
         /// A quoted string: a JSON value or an XML attribute value.

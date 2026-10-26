@@ -19,10 +19,10 @@ struct NotchClipboardView: View {
     /// The card the arrow keys chose from the search field, or the top result
     /// of a typed search; Return uses it the way a click would.
     @State private var highlightedID: UUID?
-    @AppStorage(DefaultsKey.clipboardEditorEnabled) private var editorEnabled = true
     /// Set while the page shows the editor instead of the history.
     @State private var editing: ClipboardEditorModel?
     @FocusState private var searching: Bool
+    @AppStorage(DefaultsKey.clipboardEditorEnabled) private var editorEnabled = true
     @Environment(\.notchSettingsPreview) private var preview
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var text: ClipboardFeatureStrings { FeatureStrings.clipboard(l10n.language) }

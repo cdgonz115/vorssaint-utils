@@ -17,6 +17,7 @@ enum TextToolsTests {
         suite.run("text tools replace") { replace(suite) }
         suite.run("text tools navigation") { navigation(suite) }
         suite.run("text tools syntax") { syntax(suite) }
+        suite.run("text editor preferences") { preferences(suite) }
     }
 
     private static func json(_ suite: TestSuite) {
@@ -265,5 +266,66 @@ enum TextToolsTests {
         suite.expect(tokens(String(repeating: "1", count: SyntaxHighlightSupport.maximumLength + 1), .json).isEmpty,
                      "text over the limit is left uncolored")
         suite.expect(tokens("", .json).isEmpty && tokens("", .xml).isEmpty, "empty text has nothing to color")
+    }
+
+    private static func preferences(_ suite: TestSuite) {
+        typealias Prefs = TextEditorPreferences
+        suite.expect(Prefs.formats == [.json, .xml], "settings lists every format")
+        for format in Prefs.formats {
+            suite.expect(!Prefs.kinds(for: format).isEmpty, "\(format) has something to color")
+            for kind in Prefs.kinds(for: format) {
+                suite.expect(Prefs.normalizedHex(Prefs.defaultHex(for: kind)) == Prefs.defaultHex(for: kind),
+                             "the built-in color of \(kind) is a clean #RRGGBB")
+            }
+        }
+
+        // Nothing stored: the built-in colors.
+        let plain = Prefs.palette(for: .json, stored: "")
+        suite.expect(plain[.key] == Prefs.defaultHex(for: .key) && plain[.tag] == nil,
+                     "no changes gives the built-in colors, for that format's kinds only")
+
+        // A changed color is stored alone, and wins.
+        let stored = Prefs.storing("#112233", for: .key, in: "")
+        suite.expect(stored == ##"{"key":"#112233"}"##, "only the changed color is stored")
+        suite.expect(Prefs.palette(for: .json, stored: stored)[.key] == "#112233"
+                        && Prefs.palette(for: .json, stored: stored)[.string] == Prefs.defaultHex(for: .string),
+                     "a stored color wins and the rest stay built-in")
+        let two = Prefs.storing("#445566", for: .string, in: stored)
+        suite.expect(Prefs.overrides(from: two)[.key] == "#112233" && Prefs.overrides(from: two)[.string] == "#445566",
+                     "changes add up")
+
+        // Putting a color back clears it.
+        suite.expect(Prefs.storing(Prefs.defaultHex(for: .key), for: .key, in: stored) == "",
+                     "choosing the built-in color again stores nothing")
+        suite.expect(Prefs.storing(nil, for: .key, in: stored) == "", "nil puts a color back")
+        suite.expect(Prefs.storing("#112233", for: .key, in: stored) == stored, "storing the same color is stable")
+
+        // Stored text that is not ours cannot break anything.
+        for junk in ["", "garbage", "[]", "{", ##"{"nope":"#112233"}"##, #"{"key":"red"}"#, #"{"key":5}"#] {
+            suite.expect(Prefs.palette(for: .json, stored: junk)[.key] == Prefs.defaultHex(for: .key),
+                         "unusable stored colors (\(junk)) leave the built-in one")
+        }
+        suite.expect(Prefs.overrides(from: ##"{"key":"#abc"}"##)[.key] == "#AABBCC",
+                     "a short or lower-case color is cleaned to #RRGGBB")
+
+        suite.expect(Prefs.hexString(red: 1, green: 0, blue: 0.5) == "#FF0080", "hex from components")
+        suite.expect(Prefs.hexString(red: 2, green: -1, blue: 0) == "#FF0000", "components are clamped")
+        suite.expect(Prefs.normalizedHex("#7dbeff") == "#7DBEFF", "hex is upper-cased")
+
+        // Defaults and backup.
+        let registered = Defaults.registeredDefaults
+        for format in Prefs.formats {
+            suite.expect(registered[Prefs.enabledKey(format)] as? Bool == true, "\(format) is on by default")
+            suite.expect(registered[Prefs.colorsKey(format)] as? String == "", "\(format) starts with no color changes")
+        }
+        suite.expect(Prefs.enabledKey(.json) != Prefs.enabledKey(.xml)
+                        && Prefs.colorsKey(.json) != Prefs.colorsKey(.xml),
+                     "each format has keys of its own")
+        let exported = SettingsBackupSupport.exportKeys()
+        suite.expect(Prefs.formats.allSatisfy { exported.contains(Prefs.enabledKey($0)) && exported.contains(Prefs.colorsKey($0)) },
+                     "the text editor settings travel in a backup")
+        suite.expect(!SettingsBackupSupport.valueLooksRight(Prefs.colorsKey(.json), true)
+                        && SettingsBackupSupport.valueLooksRight(Prefs.colorsKey(.json), stored),
+                     "restored colors have to be text")
     }
 }

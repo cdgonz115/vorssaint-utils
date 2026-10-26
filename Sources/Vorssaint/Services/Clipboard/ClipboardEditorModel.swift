@@ -69,12 +69,16 @@ final class ClipboardEditorModel: ObservableObject {
             }
         }
 
-        /// What the text parses as, so the type starts on the right choice.
-        static func detect(_ text: String) -> DataType {
+        /// The type the text parses as, among the formats that are switched on,
+        /// so the type starts on the right choice. A format that is off is
+        /// never picked, whatever the text looks like.
+        static func detect(_ text: String,
+                           isEnabled: (TextToolsSupport.Format) -> Bool = { TextEditorPreferences.isEnabled($0) })
+            -> DataType {
             switch TextToolsSupport.detectFormat(text) {
-            case .json?: return .json
-            case .xml?: return .xml
-            case nil: return .text
+            case .json? where isEnabled(.json): return .json
+            case .xml? where isEnabled(.xml): return .xml
+            default: return .text
             }
         }
     }
@@ -116,11 +120,12 @@ final class ClipboardEditorModel: ObservableObject {
         let minified: Bool
     }
 
-    init(original: String, source: Source) {
+    init(original: String, source: Source,
+         isFormatEnabled: (TextToolsSupport.Format) -> Bool = { TextEditorPreferences.isEnabled($0) }) {
         self.original = original
         self.source = source
         self.draft = original
-        self.dataType = DataType.detect(original)
+        self.dataType = DataType.detect(original, isEnabled: isFormatEnabled)
     }
 
     /// The draft read as the chosen type. Worked out when it is asked for and

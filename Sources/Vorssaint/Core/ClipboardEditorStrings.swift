@@ -23,7 +23,6 @@ struct ClipboardEditorStrings {
     let typeText: String
     let invalidJSON: String
     let invalidXML: String
-    let syntaxColors: String
 }
 
 extension FeatureStrings {
@@ -63,8 +62,7 @@ extension ClipboardEditorStrings {
         formatted: "Formatted",
         typeText: "Text",
         invalidJSON: "Not valid JSON",
-        invalidXML: "Not valid XML",
-        syntaxColors: "Syntax colors in Formatted"
+        invalidXML: "Not valid XML"
     )
 
     static let ptBR = ClipboardEditorStrings(
@@ -81,8 +79,7 @@ extension ClipboardEditorStrings {
         formatted: "Formatado",
         typeText: "Texto",
         invalidJSON: "JSON inválido",
-        invalidXML: "XML inválido",
-        syntaxColors: "Cores de sintaxe no Formatado"
+        invalidXML: "XML inválido"
     )
 
     static let tr = ClipboardEditorStrings(
@@ -99,8 +96,7 @@ extension ClipboardEditorStrings {
         formatted: "Biçimlendirilmiş",
         typeText: "Metin",
         invalidJSON: "Geçersiz JSON",
-        invalidXML: "Geçersiz XML",
-        syntaxColors: "Biçimlendirilmiş görünümde sözdizimi renkleri"
+        invalidXML: "Geçersiz XML"
     )
 
     static let ru = ClipboardEditorStrings(
@@ -117,8 +113,7 @@ extension ClipboardEditorStrings {
         formatted: "Форматированный",
         typeText: "Текст",
         invalidJSON: "Недопустимый JSON",
-        invalidXML: "Недопустимый XML",
-        syntaxColors: "Подсветка синтаксиса в «Форматированном»"
+        invalidXML: "Недопустимый XML"
     )
 
     static let es = ClipboardEditorStrings(
@@ -135,8 +130,7 @@ extension ClipboardEditorStrings {
         formatted: "Formateado",
         typeText: "Texto",
         invalidJSON: "JSON no válido",
-        invalidXML: "XML no válido",
-        syntaxColors: "Colores de sintaxis en Formateado"
+        invalidXML: "XML no válido"
     )
 
     static let sk = ClipboardEditorStrings(
@@ -153,8 +147,7 @@ extension ClipboardEditorStrings {
         formatted: "Formátovaný",
         typeText: "Text",
         invalidJSON: "Neplatný JSON",
-        invalidXML: "Neplatný XML",
-        syntaxColors: "Farby syntaxe vo Formátovanom"
+        invalidXML: "Neplatný XML"
     )
 
     static let de = ClipboardEditorStrings(
@@ -171,8 +164,7 @@ extension ClipboardEditorStrings {
         formatted: "Formatiert",
         typeText: "Text",
         invalidJSON: "Kein gültiges JSON",
-        invalidXML: "Kein gültiges XML",
-        syntaxColors: "Syntaxfarben in „Formatiert“"
+        invalidXML: "Kein gültiges XML"
     )
 
     static let fr = ClipboardEditorStrings(
@@ -189,8 +181,7 @@ extension ClipboardEditorStrings {
         formatted: "Formaté",
         typeText: "Texte",
         invalidJSON: "JSON invalide",
-        invalidXML: "XML invalide",
-        syntaxColors: "Coloration syntaxique dans Formaté"
+        invalidXML: "XML invalide"
     )
 
     static let it = ClipboardEditorStrings(
@@ -207,8 +198,7 @@ extension ClipboardEditorStrings {
         formatted: "Formattato",
         typeText: "Testo",
         invalidJSON: "JSON non valido",
-        invalidXML: "XML non valido",
-        syntaxColors: "Colori della sintassi in Formattato"
+        invalidXML: "XML non valido"
     )
 
     static let ja = ClipboardEditorStrings(
@@ -225,8 +215,7 @@ extension ClipboardEditorStrings {
         formatted: "整形済み",
         typeText: "テキスト",
         invalidJSON: "無効なJSON",
-        invalidXML: "無効なXML",
-        syntaxColors: "整形ビューのシンタックスカラー"
+        invalidXML: "無効なXML"
     )
 
     static let ko = ClipboardEditorStrings(
@@ -243,8 +232,7 @@ extension ClipboardEditorStrings {
         formatted: "서식 적용",
         typeText: "텍스트",
         invalidJSON: "올바르지 않은 JSON",
-        invalidXML: "올바르지 않은 XML",
-        syntaxColors: "서식 보기의 구문 색상"
+        invalidXML: "올바르지 않은 XML"
     )
 
     static let zhHans = ClipboardEditorStrings(
@@ -261,8 +249,7 @@ extension ClipboardEditorStrings {
         formatted: "格式化",
         typeText: "文本",
         invalidJSON: "JSON 无效",
-        invalidXML: "XML 无效",
-        syntaxColors: "格式化视图中的语法颜色"
+        invalidXML: "XML 无效"
     )
 
     static let zhTW = ClipboardEditorStrings(
@@ -279,8 +266,7 @@ extension ClipboardEditorStrings {
         formatted: "已格式化",
         typeText: "文字",
         invalidJSON: "JSON 無效",
-        invalidXML: "XML 無效",
-        syntaxColors: "格式化檢視中的語法顏色"
+        invalidXML: "XML 無效"
     )
 
     static let zhHK = ClipboardEditorStrings(
@@ -297,8 +283,7 @@ extension ClipboardEditorStrings {
         formatted: "已格式化",
         typeText: "文字",
         invalidJSON: "JSON 無效",
-        invalidXML: "XML 無效",
-        syntaxColors: "格式化檢視中的語法顏色"
+        invalidXML: "XML 無效"
     )
 
     static let uk = ClipboardEditorStrings(
@@ -315,7 +300,6 @@ extension ClipboardEditorStrings {
         formatted: "Форматований",
         typeText: "Текст",
         invalidJSON: "Недійсний JSON",
-        invalidXML: "Недійсний XML",
-        syntaxColors: "Підсвічування синтаксису у «Форматованому»"
+        invalidXML: "Недійсний XML"
     )
 }
