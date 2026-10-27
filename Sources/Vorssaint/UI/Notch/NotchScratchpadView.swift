@@ -18,6 +18,7 @@ struct NotchScratchpadView: View {
     @State private var copied = false
     @State private var hoveredPadID: UUID?
     @State private var editor = EditorHandle()
+    @State private var preview = EditorHandle()
     @State private var showFind = false
     @State private var showReplace = false
     @State private var findStep: FindStepRequest?
@@ -112,8 +113,7 @@ struct NotchScratchpadView: View {
         .onChange(of: pad.isPreviewing) { _, previewing in
             guard let view = editor.view else { return }
             if previewing {
-                // Nobody can see a search over a source nobody is reading.
-                showFind = false
+                // A preview is searched but not replaced in.
                 showReplace = false
                 if view.window?.firstResponder === view {
                     view.window?.makeFirstResponder(nil)
@@ -146,10 +146,11 @@ struct NotchScratchpadView: View {
     /// editor, and the text gets room above it instead of shrinking.
     @ViewBuilder
     private var findBar: some View {
-        if showFind, !pad.isPreviewing {
-            NotchFindReplaceBar(textView: { editor.view }, text: pad.text,
-                                showReplace: $showReplace, stepRequest: findStep,
-                                onClose: closeFind)
+        if showFind {
+            NotchFindReplaceBar(textView: { pad.isPreviewing ? preview.view : editor.view },
+                                text: pad.isPreviewing ? (preview.view?.string ?? "") : pad.text,
+                                showReplace: $showReplace, allowsReplace: !pad.isPreviewing,
+                                stepRequest: findStep, onClose: closeFind)
                 .frame(maxWidth: 420)
                 .padding(6)
         }
@@ -157,7 +158,7 @@ struct NotchScratchpadView: View {
 
     /// Room above the text for the find bar while it is showing.
     private var topInset: CGFloat {
-        showFind && !pad.isPreviewing ? NotchFindReplaceBar.floatingHeight(showingReplace: showReplace) : 0
+        showFind ? NotchFindReplaceBar.floatingHeight(showingReplace: showReplace && !pad.isPreviewing) : 0
     }
 
     private var editorSurface: some View {
@@ -178,7 +179,7 @@ struct NotchScratchpadView: View {
             .accessibilityHidden(pad.isPreviewing)
             if pad.isPreviewing {
                 MarkdownPreview(blocks: ScratchpadSupport.markdownPreview(pad.text),
-                                baseSize: textSize)
+                                baseSize: textSize, topContentInset: topInset) { preview.view = $0 }
             } else if pad.text.isEmpty {
                 Text(text.placeholder)
                     .font(.system(size: textSize))
@@ -300,15 +301,12 @@ struct NotchScratchpadView: View {
     // MARK: - Find and text tools
 
     /// What the island asked for with Command-F or Command-G. A pad in preview
-    /// comes back to its text first: a search over a source nobody is reading
-    /// would select a match nobody can see.
+    /// is searched as it reads, without the replace row.
     private func handleFind(_ action: NSTextFinder.Action) {
         switch action {
         case .showFindInterface:
-            if pad.isPreviewing { pad.togglePreview() }
             toggleFind()
         case .nextMatch, .previousMatch:
-            if pad.isPreviewing { pad.togglePreview() }
             if showFind {
                 findStep = FindStepRequest(serial: (findStep?.serial ?? 0) + 1,
                                            backwards: action == .previousMatch)
@@ -334,7 +332,11 @@ struct NotchScratchpadView: View {
 
     /// Command-R: everything out, or everything away.
     private func toggleFindAndReplace() {
-        if pad.isPreviewing { pad.togglePreview() }
+        // A preview has no replace row, so this is only the find bar.
+        if pad.isPreviewing {
+            if showFind { closeFind() } else { showFind = true }
+            return
+        }
         if showFind && showReplace {
             closeFind()
         } else {

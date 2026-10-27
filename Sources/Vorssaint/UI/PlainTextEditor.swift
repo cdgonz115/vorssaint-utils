@@ -107,7 +107,7 @@ struct PlainTextEditor: NSViewRepresentable {
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
         guard let textView = scroll.documentView as? NSTextView else { return scroll }
-        applyTopContentInset(to: scroll)
+        Self.setTopContentInset(topContentInset, on: scroll)
         textView.drawsBackground = false
         textView.font = .systemFont(ofSize: fontSize)
         textView.textContainer?.lineFragmentPadding = Self.lineFragmentPadding
@@ -151,7 +151,7 @@ struct PlainTextEditor: NSViewRepresentable {
         if textView.font?.pointSize != fontSize {
             textView.font = .systemFont(ofSize: fontSize)
         }
-        applyTopContentInset(to: nsView)
+        Self.setTopContentInset(topContentInset, on: nsView)
         let coordinator = context.coordinator
         let highlightChanged = coordinator.highlighting?.id != highlighting?.id
         coordinator.highlighting = highlighting
@@ -171,21 +171,22 @@ struct PlainTextEditor: NSViewRepresentable {
         coordinator.applyHighlighting(to: textView)
     }
 
-    /// The room above the text is the scroll view's own inset, so the text
-    /// can scroll up under whatever floats there. Only a view that is at the top
-    /// follows the change; one scrolled down keeps its text where it is.
-    private func applyTopContentInset(to scroll: NSScrollView) {
-        guard scroll.contentInsets.top != topContentInset || scroll.automaticallyAdjustsContentInsets else { return }
+    /// Room kept above the content, inside the scroll view, for something
+    /// floating over it (a find bar). The content can scroll up under it. Only
+    /// a view that is at the top follows the change; one scrolled down keeps
+    /// its content where it is. A static member, so the preview shares it.
+    static func setTopContentInset(_ inset: CGFloat, on scroll: NSScrollView) {
+        guard scroll.contentInsets.top != inset || scroll.automaticallyAdjustsContentInsets else { return }
         let clip = scroll.contentView
         let old = scroll.contentInsets.top
         let before = clip.bounds.origin
         let wasAtTop = before.y <= -old + 0.5
         scroll.automaticallyAdjustsContentInsets = false
-        scroll.contentInsets = NSEdgeInsets(top: topContentInset, left: 0, bottom: 0, right: 0)
+        scroll.contentInsets = NSEdgeInsets(top: inset, left: 0, bottom: 0, right: 0)
         // Changing the inset moves the scroll position along with it, which
-        // would push the text down. At the top that is wanted; anywhere else
-        // the position is put back so the text stays where it was.
-        clip.scroll(to: wasAtTop ? NSPoint(x: before.x, y: -topContentInset) : before)
+        // would push the content down. At the top that is wanted; anywhere
+        // else the position is put back so the content stays where it was.
+        clip.scroll(to: wasAtTop ? NSPoint(x: before.x, y: -inset) : before)
         scroll.reflectScrolledClipView(clip)
     }
 

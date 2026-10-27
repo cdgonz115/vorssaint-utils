@@ -574,9 +574,14 @@ private struct ScratchpadResizeOverlay: NSViewRepresentable {
 struct MarkdownPreview: NSViewRepresentable {
     let blocks: [ScratchpadMarkdownBlock]
     var baseSize: CGFloat = PlainTextEditor.defaultFontSize
+    /// Room above the text for a find bar floating over it.
+    var topContentInset: CGFloat = 0
+    /// Handed the text view once, so a find bar can search it.
+    var onCreate: ((NSTextView) -> Void)?
 
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSTextView.scrollableTextView()
+        PlainTextEditor.setTopContentInset(topContentInset, on: scroll)
         scroll.drawsBackground = false
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
@@ -589,10 +594,12 @@ struct MarkdownPreview: NSViewRepresentable {
         textView.textContainerInset = NSSize(width: 7, height: 2)
         textView.linkTextAttributes = [.foregroundColor: NSColor.controlAccentColor]
         textView.textStorage?.setAttributedString(Self.rendered(blocks, base: baseSize))
+        onCreate?(textView)
         return scroll
     }
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
+        PlainTextEditor.setTopContentInset(topContentInset, on: nsView)
         guard let textView = nsView.documentView as? NSTextView else { return }
         let content = Self.rendered(blocks, base: baseSize)
         guard !textView.attributedString().isEqual(to: content) else { return }

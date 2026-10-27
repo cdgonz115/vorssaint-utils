@@ -116,6 +116,7 @@ enum NotchCompactTests {
         let textView: () -> NSTextView?
         let text: String
         @Binding var showReplace: Bool
+        var allowsReplace = true
         var stepRequest: FindStepRequest?
         let onClose: () -> Void
         var body: some View { Color.clear }
@@ -132,6 +133,8 @@ enum NotchCompactTests {
     struct MarkdownPreview: View {
         let blocks: [ScratchpadMarkdownBlock]
         var baseSize: CGFloat = 13
+        var topContentInset: CGFloat = 0
+        var onCreate: ((NSTextView) -> Void)?
         var body: some View { Color.clear }
     }
     struct Music { var playback: Bool? = true }

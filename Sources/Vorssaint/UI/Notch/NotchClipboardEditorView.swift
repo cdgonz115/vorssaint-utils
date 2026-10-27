@@ -36,6 +36,7 @@ struct NotchClipboardEditorView: View {
     @ObservedObject private var history = ClipboardHistoryService.shared
     @ObservedObject private var l10n = L10n.shared
     @State private var editor = EditorHandle()
+    @State private var preview = EditorHandle()
     @State private var showFind = false
     /// The replace row stays out of the way until it is asked for, as in a
     /// code editor: most searches are only searches.
@@ -201,7 +202,7 @@ struct NotchClipboardEditorView: View {
             .accessibilityHidden(model.isPreviewing)
             if model.isPreviewing {
                 MarkdownPreview(blocks: ScratchpadSupport.markdownPreview(model.draft),
-                                baseSize: Self.fontSize)
+                                baseSize: Self.fontSize, topContentInset: topInset) { preview.view = $0 }
             }
             // Over the text, whatever the text view does with its layers.
             findBar
@@ -216,9 +217,11 @@ struct NotchClipboardEditorView: View {
     /// editor, and the text gets room above it instead of shrinking.
     @ViewBuilder
     private var findBar: some View {
-        if showFind && !model.isPreviewing {
-            NotchFindReplaceBar(textView: { editor.view }, text: model.draft,
-                                showReplace: $showReplace, onClose: closeFind)
+        if showFind {
+            NotchFindReplaceBar(textView: { model.isPreviewing ? preview.view : editor.view },
+                                text: model.isPreviewing ? (preview.view?.string ?? "") : model.draft,
+                                showReplace: $showReplace, allowsReplace: !model.isPreviewing,
+                                onClose: closeFind)
                 .frame(maxWidth: 420)
                 .padding(6)
         }
@@ -226,16 +229,17 @@ struct NotchClipboardEditorView: View {
 
     /// Room above the text for the find bar while it is showing.
     private var topInset: CGFloat {
-        showFind && !model.isPreviewing ? NotchFindReplaceBar.floatingHeight(showingReplace: showReplace) : 0
+        showFind ? NotchFindReplaceBar.floatingHeight(showingReplace: showReplace && !model.isPreviewing) : 0
     }
 
     // MARK: - Actions
 
     private func togglePreview() {
         flushComposition()
-        closeFindQuietly()
+        // A preview is searched but not replaced in.
+        showReplace = false
         withAnimation(.easeOut(duration: 0.15)) { model.isPreviewing.toggle() }
-        if !model.isPreviewing { DispatchQueue.main.async { focusEditor() } }
+        if !model.isPreviewing && !showFind { DispatchQueue.main.async { focusEditor() } }
     }
 
     /// Only pinned clipboards keep their type; the rest of the history comes and goes.
@@ -271,6 +275,11 @@ struct NotchClipboardEditorView: View {
 
     /// Command-R: everything out, or everything away.
     private func toggleFindAndReplace() {
+        // A preview has no replace row, so this is only the find bar.
+        if model.isPreviewing {
+            if showFind { closeFind() } else { showFind = true }
+            return
+        }
         if showFind && showReplace {
             closeFind()
         } else {
@@ -294,11 +303,6 @@ struct NotchClipboardEditorView: View {
         onShowHistory()
     }
 
-    private func closeFindQuietly() {
-        showFind = false
-        showReplace = false
-    }
-
     /// Text an input method is still composing is not in the draft yet.
     private func flushComposition() {
         if let view = editor.view, view.hasMarkedText() { view.unmarkText() }
@@ -306,7 +310,7 @@ struct NotchClipboardEditorView: View {
 
     /// The caret starts at the top, where the beginning of the data is.
     private func focusEditor() {
-        guard let view = editor.view, let window = view.window, window.isKeyWindow else { return }
+        guard !model.isPreviewing, let view = editor.view, let window = view.window, window.isKeyWindow else { return }
         window.makeFirstResponder(view)
     }
 }
