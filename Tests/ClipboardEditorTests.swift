@@ -170,6 +170,13 @@ enum ClipboardEditorTests {
         suite.expect(ClipboardEditorModel.laidOut("<a>", as: .xml, minified: false) == nil,
                      "and broken XML is refused")
 
+        suite.expect(ClipboardEditorModel.DataType.allCases.map(\.fileExtension) == ["txt", "json", "xml", "md"],
+                     "each type is saved with its own extension")
+        suite.expect(ScratchpadSupport.exportFileName(title: "Notes", date: Date(timeIntervalSince1970: 0),
+                                                      fileExtension: "json").hasSuffix(".json")
+                        && ScratchpadSupport.exportFileName(title: "Notes", date: Date()).hasSuffix(".txt"),
+                     "the exported name takes the extension, and is .txt without one")
+
         // Laying out in place is an edit of the draft like any other.
         model.draft = pretty
         suite.expect(model.hasChanges, "a laid-out draft is a change")

@@ -68,7 +68,7 @@ enum NotchCompactTests {
         func hideFindBar(in editor: NSTextView) {}
         func togglePreview() { isPreviewing.toggle() }
         func show(allowsIsland: Bool = true) {}
-        func exportText(suggestedName: String, from window: NSWindow? = nil) {}
+        func exportText(suggestedName: String, fileExtension: String = "txt", from window: NSWindow? = nil) {}
     }
     struct NotchEmptyView: View {
         let symbol: String

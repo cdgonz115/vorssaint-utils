@@ -228,8 +228,10 @@ struct NotchScratchpadView: View {
                 }
                 Button(text.exportAction) {
                     if let window = service.presentationWindow {
-                        pad.exportText(suggestedName: ScratchpadSupport.exportFileName(title: pad.selectedPadName, date: Date()),
-                                       from: window)
+                        let ext = currentType.fileExtension
+                        pad.exportText(suggestedName: ScratchpadSupport.exportFileName(title: pad.selectedPadName, date: Date(),
+                                                                                       fileExtension: ext),
+                                       fileExtension: ext, from: window)
                     }
                 }
                 .disabled(pad.text.isEmpty)

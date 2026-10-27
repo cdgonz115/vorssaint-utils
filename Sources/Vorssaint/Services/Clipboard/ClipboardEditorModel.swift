@@ -54,6 +54,16 @@ final class ClipboardEditorModel: ObservableObject {
 
         /// The format the text tools parse, or nil for the types that are
         /// not laid out by parsing.
+        /// The extension a file of this type is saved with.
+        var fileExtension: String {
+            switch self {
+            case .text: return "txt"
+            case .json: return "json"
+            case .xml: return "xml"
+            case .markdown: return "md"
+            }
+        }
+
         var structured: TextToolsSupport.Format? {
             switch self {
             case .json: return .json

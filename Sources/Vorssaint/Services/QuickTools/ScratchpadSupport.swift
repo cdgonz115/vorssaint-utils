@@ -359,14 +359,15 @@ enum ScratchpadSupport {
     }
 
     /// Suggested name for the exported file, like "Scratchpad 2026-07-17.txt".
-    static func exportFileName(title: String, date: Date) -> String {
+    /// The extension is the pad's type's, so a JSON pad is saved as ".json".
+    static func exportFileName(title: String, date: Date, fileExtension: String = "txt") -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
         let safeTitle = sanitizedPadName(title)
             .replacingOccurrences(of: "/", with: "-")
             .replacingOccurrences(of: ":", with: "-")
-        return "\(safeTitle) \(formatter.string(from: date)).txt"
+        return "\(safeTitle) \(formatter.string(from: date)).\(fileExtension)"
     }
 }
 

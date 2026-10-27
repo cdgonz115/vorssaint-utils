@@ -342,13 +342,15 @@ final class ScratchpadService: NSObject, ObservableObject, NSWindowDelegate {
     /// Activate for dialog input and return focus to the originating host.
     /// The island's dialog floats just above it: a sheet would move and
     /// reskin the borderless surface.
-    func exportText(suggestedName: String, from window: NSWindow? = nil) {
+    func exportText(suggestedName: String, fileExtension: String = "txt", from window: NSWindow? = nil) {
         guard !text.isEmpty, !modalInteractionActive, let padID = selectedPadID,
               let sourceWindow = window ?? panel, sourceWindow.isVisible else { return }
         modalInteractionActive = true
         flushSave()
         let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.plainText]
+        // The pad's type decides the extension, and the panel keeps to it
+        // rather than adding ".txt" to a ".json" name.
+        savePanel.allowedContentTypes = [UTType(filenameExtension: fileExtension) ?? .plainText]
         savePanel.canCreateDirectories = true
         savePanel.isExtensionHidden = false
         savePanel.nameFieldStringValue = suggestedName
