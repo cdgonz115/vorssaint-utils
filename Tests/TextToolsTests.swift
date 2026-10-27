@@ -16,6 +16,9 @@ enum TextToolsTests {
         suite.run("text tools detection") { detection(suite) }
         suite.run("text tools replace") { replace(suite) }
         suite.run("text tools navigation") { navigation(suite) }
+        suite.run("text tools syntax") { syntax(suite) }
+        suite.run("text editor preferences") { preferences(suite) }
+        suite.run("text editor types") { types(suite) }
     }
 
     private static func json(_ suite: TestSuite) {
@@ -214,5 +217,146 @@ enum TextToolsTests {
                      "a literal replacement is taken as typed")
         suite.expect(TextToolsSupport.replacement(in: text, find: "", with: "x", at: NSRange(location: 0, length: 0))
                      == .failure(.emptyPattern), "an empty search is refused")
+    }
+
+    private static func syntax(_ suite: TestSuite) {
+        typealias Token = SyntaxHighlightSupport.Token
+        func tokens(_ text: String, _ format: TextToolsSupport.Format) -> [Token] {
+            SyntaxHighlightSupport.tokens(in: text, format: format)
+        }
+        func kinds(_ text: String, _ format: TextToolsSupport.Format) -> [SyntaxHighlightSupport.Kind] {
+            tokens(text, format).map(\.kind)
+        }
+
+        // {"a": [1, true]}
+        suite.expect(kinds(#"{"a": [1, true]}"#, .json)
+                     == [.punctuation, .key, .punctuation, .punctuation, .number, .punctuation, .literal,
+                         .punctuation, .punctuation],
+                     "json: keys, numbers, literals and punctuation are told apart")
+        suite.expect(kinds(#"{"a":"b"}"#, .json) == [.punctuation, .key, .punctuation, .string, .punctuation],
+                     "json: a string before a colon is a key, after it a value")
+        suite.expect(tokens(#"["x"]"#, .json)[1] == Token(range: NSRange(location: 1, length: 3), kind: .string),
+                     "json: a string token covers its quotes")
+        suite.expect(kinds(#"["a\"b"]"#, .json) == [.punctuation, .string, .punctuation],
+                     "json: an escaped quote does not end the string")
+        suite.expect(tokens("[-1.5e3]", .json)[1] == Token(range: NSRange(location: 1, length: 6), kind: .number),
+                     "json: a number takes its sign, fraction and exponent")
+        suite.expect(kinds("[nope]", .json) == [.punctuation, .punctuation],
+                     "json: a word that is not true, false or null is left plain")
+        suite.expect(kinds(#"{"a": "unclosed"#, .json) == [.punctuation, .key, .punctuation, .string],
+                     "json: half-typed text is colored as far as it goes")
+
+        suite.expect(kinds("<a b=\"c\">d</a>", .xml)
+                     == [.punctuation, .tag, .attribute, .punctuation, .string, .punctuation, .value,
+                         .punctuation, .tag, .punctuation],
+                     "xml: tag, attribute, value and punctuation are told apart")
+        suite.expect(kinds("<a/>", .xml) == [.punctuation, .tag, .punctuation, .punctuation],
+                     "xml: a self-closing tag")
+        suite.expect(kinds("<!-- x --><a/>", .xml).first == .comment, "xml: comments")
+        suite.expect(kinds("<a><![CDATA[<b>]]></a>", .xml).contains(.value), "xml: CDATA is a value")
+        suite.expect(kinds("<?xml version=\"1.0\"?>", .xml)
+                     == [.punctuation, .tag, .attribute, .punctuation, .string, .punctuation, .punctuation],
+                     "xml: the declaration")
+        suite.expect(tokens("<a>  x y  </a>", .xml)[3] == Token(range: NSRange(location: 5, length: 3), kind: .value),
+                     "xml: text between tags leaves out the whitespace around it")
+        suite.expect(!kinds("<a b=\"c", .xml).isEmpty, "xml: an unclosed tag does not stop the scan")
+
+        suite.expect(SyntaxHighlightSupport.opens("  {\"a\"", as: .json)
+                        && SyntaxHighlightSupport.opens("[1,", as: .json)
+                        && SyntaxHighlightSupport.opens("\n<a", as: .xml),
+                     "a half-typed document still opens like its format")
+        suite.expect(!SyntaxHighlightSupport.opens("hello", as: .json)
+                        && !SyntaxHighlightSupport.opens("{", as: .xml)
+                        && !SyntaxHighlightSupport.opens("   ", as: .json),
+                     "anything else does not, and empty text opens like nothing")
+
+        // Offsets are UTF-16 units, as AppKit counts them.
+        suite.expect(tokens("[\"é😀\", 1]", .json).last?.range == NSRange(location: 9, length: 1),
+                     "ranges count UTF-16 units, so an emoji is two")
+        suite.expect(tokens(String(repeating: "1", count: SyntaxHighlightSupport.maximumLength + 1), .json).isEmpty,
+                     "text over the limit is left uncolored")
+        suite.expect(tokens("", .json).isEmpty && tokens("", .xml).isEmpty, "empty text has nothing to color")
+    }
+
+    private static func preferences(_ suite: TestSuite) {
+        typealias Prefs = TextEditorPreferences
+        suite.expect(Prefs.formats == [.json, .xml], "settings lists every format")
+        for format in Prefs.formats {
+            suite.expect(!Prefs.kinds(for: format).isEmpty, "\(format) has something to color")
+            for kind in Prefs.kinds(for: format) {
+                suite.expect(Prefs.normalizedHex(Prefs.defaultHex(for: kind)) == Prefs.defaultHex(for: kind),
+                             "the built-in color of \(kind) is a clean #RRGGBB")
+            }
+        }
+
+        // Nothing stored: the built-in colors.
+        let plain = Prefs.palette(for: .json, stored: "")
+        suite.expect(plain[.key] == Prefs.defaultHex(for: .key) && plain[.tag] == nil,
+                     "no changes gives the built-in colors, for that format's kinds only")
+
+        // A changed color is stored alone, and wins.
+        let stored = Prefs.storing("#112233", for: .key, in: "")
+        suite.expect(stored == ##"{"key":"#112233"}"##, "only the changed color is stored")
+        suite.expect(Prefs.palette(for: .json, stored: stored)[.key] == "#112233"
+                        && Prefs.palette(for: .json, stored: stored)[.string] == Prefs.defaultHex(for: .string),
+                     "a stored color wins and the rest stay built-in")
+        let two = Prefs.storing("#445566", for: .string, in: stored)
+        suite.expect(Prefs.overrides(from: two)[.key] == "#112233" && Prefs.overrides(from: two)[.string] == "#445566",
+                     "changes add up")
+
+        // Putting a color back clears it.
+        suite.expect(Prefs.storing(Prefs.defaultHex(for: .key), for: .key, in: stored) == "",
+                     "choosing the built-in color again stores nothing")
+        suite.expect(Prefs.storing(nil, for: .key, in: stored) == "", "nil puts a color back")
+        suite.expect(Prefs.storing("#112233", for: .key, in: stored) == stored, "storing the same color is stable")
+
+        // Stored text that is not ours cannot break anything.
+        for junk in ["", "garbage", "[]", "{", ##"{"nope":"#112233"}"##, #"{"key":"red"}"#, #"{"key":5}"#] {
+            suite.expect(Prefs.palette(for: .json, stored: junk)[.key] == Prefs.defaultHex(for: .key),
+                         "unusable stored colors (\(junk)) leave the built-in one")
+        }
+        suite.expect(Prefs.overrides(from: ##"{"key":"#abc"}"##)[.key] == "#AABBCC",
+                     "a short or lower-case color is cleaned to #RRGGBB")
+
+        suite.expect(Prefs.hexString(red: 1, green: 0, blue: 0.5) == "#FF0080", "hex from components")
+        suite.expect(Prefs.hexString(red: 2, green: -1, blue: 0) == "#FF0000", "components are clamped")
+        suite.expect(Prefs.normalizedHex("#7dbeff") == "#7DBEFF", "hex is upper-cased")
+
+        // Defaults and backup.
+        let registered = Defaults.registeredDefaults
+        for format in Prefs.formats {
+            suite.expect(registered[Prefs.enabledKey(format)] as? Bool == true, "\(format) is on by default")
+            suite.expect(registered[Prefs.colorsKey(format)] as? String == "", "\(format) starts with no color changes")
+        }
+        suite.expect(Prefs.enabledKey(.json) != Prefs.enabledKey(.xml)
+                        && Prefs.colorsKey(.json) != Prefs.colorsKey(.xml),
+                     "each format has keys of its own")
+        let exported = SettingsBackupSupport.exportKeys()
+        suite.expect(Prefs.formats.allSatisfy { exported.contains(Prefs.enabledKey($0)) && exported.contains(Prefs.colorsKey($0)) },
+                     "the text editor settings travel in a backup")
+        suite.expect(!SettingsBackupSupport.valueLooksRight(Prefs.colorsKey(.json), true)
+                        && SettingsBackupSupport.valueLooksRight(Prefs.colorsKey(.json), stored),
+                     "restored colors have to be text")
+    }
+
+    private static func types(_ suite: TestSuite) {
+        typealias Store = TextEditorTypeStore
+        let a = UUID(), b = UUID(), gone = UUID()
+        var stored = Store.updated([:], setting: "json", for: a, keeping: [a, b])
+        suite.expect(Store.rawType(for: a, in: stored) == "json", "a chosen type is remembered")
+        suite.expect(Store.rawType(for: b, in: stored) == nil, "an item never chosen has none")
+        stored = Store.updated(stored, setting: "xml", for: gone, keeping: [a, b])
+        stored = Store.updated(stored, setting: "markdown", for: b, keeping: [a, b])
+        suite.expect(Store.rawType(for: gone, in: stored) == nil, "ids that are no longer live are dropped")
+        suite.expect(Store.rawType(for: a, in: stored) == "json" && Store.rawType(for: b, in: stored) == "markdown",
+                     "the live ones are kept")
+        stored = Store.updated(stored, setting: "text", for: a, keeping: [a, b])
+        suite.expect(Store.rawType(for: a, in: stored) == nil, "going back to Text keeps nothing")
+        let suiteName = "vorss.tests.text-editor-types"
+        if let defaults = UserDefaults(suiteName: suiteName) {
+            Store.save(stored, defaults)
+            suite.expect(Store.load(defaults) == stored, "the store round-trips through defaults")
+            defaults.removePersistentDomain(forName: suiteName)
+        }
     }
 }

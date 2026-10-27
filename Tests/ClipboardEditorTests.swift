@@ -42,7 +42,7 @@ enum ClipboardEditorTests {
         suite.run("clipboard editor live clipboard") { liveClipboard(suite) }
         suite.run("clipboard editor failures") { failures(suite) }
         suite.run("clipboard editor preferences") { preferences(suite) }
-        suite.run("clipboard editor tabs") { tabs(suite) }
+        suite.run("clipboard editor types") { tabs(suite) }
     }
 
     private static func commit(_ model: ClipboardEditorModel,
@@ -154,75 +154,40 @@ enum ClipboardEditorTests {
         let history = FakeHistory([entry])
         let model = ClipboardEditorModel(original: compact, source: .entry(entry.id))
 
-        suite.expect(model.tab == .raw && model.dataType == .json && !model.minified,
-                     "the editor opens on Raw, set to the type the text parses as")
-        suite.expect(model.outputText == compact && !model.hasChanges, "Raw writes the text as it is")
+        suite.expect(model.dataType == .text && !model.isPreviewing && !model.hasChanges,
+                     "the editor opens on Text, whatever the text looks like")
+        suite.expect(ClipboardEditorModel.laidOut(compact, as: .text, minified: false) == compact
+                        && ClipboardEditorModel.laidOut(compact, as: .markdown, minified: true) == compact,
+                     "Text and Markdown are never rewritten")
+        suite.expect(!pretty.isEmpty && ClipboardEditorModel.laidOut(compact, as: .json, minified: false) == pretty,
+                     "JSON is indented")
+        suite.expect(ClipboardEditorModel.laidOut(pretty, as: .json, minified: true) == compact,
+                     "and Minify makes it compact again")
+        suite.expect(ClipboardEditorModel.laidOut("not { json", as: .json, minified: false) == nil,
+                     "text that is not JSON is refused, so it can be left alone")
+        suite.expect(ClipboardEditorModel.laidOut("<a><b>1</b></a>", as: .xml, minified: false)?.contains("\n") == true,
+                     "XML is laid out on lines")
+        suite.expect(ClipboardEditorModel.laidOut("<a>", as: .xml, minified: false) == nil,
+                     "and broken XML is refused")
 
-        model.tab = .formatted
-        suite.expect(!pretty.isEmpty && model.formattedText() == .init(text: pretty, isValid: true)
-                        && model.outputText == pretty,
-                     "Formatted shows the text indented")
-        suite.expect(model.draft == compact, "looking at Formatted never touches the text itself")
-        model.minified = true
-        suite.expect(model.outputText == compact, "Minified is the compact form")
-        model.minified = false
+        suite.expect(ClipboardEditorModel.DataType.allCases.map(\.fileExtension) == ["txt", "json", "xml", "md"],
+                     "each type is saved with its own extension")
+        suite.expect(ScratchpadSupport.exportFileName(title: "Notes", date: Date(timeIntervalSince1970: 0),
+                                                      fileExtension: "json").hasSuffix(".json")
+                        && ScratchpadSupport.exportFileName(title: "Notes", date: Date()).hasSuffix(".txt"),
+                     "the exported name takes the extension, and is .txt without one")
 
-        // What the open tab shows is what a close writes.
-        suite.expect(commit(model, history) == .committed(updatedHistory: true), "closing on Formatted commits")
+        // Laying out in place is an edit of the draft like any other.
+        model.draft = pretty
+        suite.expect(model.hasChanges, "a laid-out draft is a change")
+        suite.expect(commit(model, history) == .committed(updatedHistory: true), "closing commits it")
         suite.expect(history.entries.first?.text == pretty && history.copied.last?.text == pretty,
-                     "the formatted text is what lands in history and on the clipboard")
+                     "the draft is what lands in history and on the clipboard")
         suite.expect(commit(model, history) == .unchanged, "a second close has nothing left to write")
 
-        // Edits on Raw are re-read the next time Formatted is shown.
-        let edited = ClipboardEditorModel(original: compact, source: .liveClipboard)
-        edited.draft = #"{"z":2}"#
-        edited.tab = .formatted
-        suite.expect(edited.outputText == (TextToolsSupport.prettyPrintJSON(#"{"z":2}"#) ?? "?"),
-                     "Formatted follows what was typed on Raw")
-
-        // Formatted can be edited; the edit is what a close writes, and it is
-        // dropped when the text is laid out again.
-        let typed = ClipboardEditorModel(original: compact, source: .liveClipboard)
-        typed.tab = .formatted
-        typed.formattedEdit = "changed"
-        suite.expect(typed.formattedText().text == "changed" && typed.outputText == "changed"
-                        && typed.draft == compact,
-                     "an edit on Formatted is what it shows and writes, and Raw is untouched")
-        typed.tab = .raw
-        typed.tab = .formatted
-        suite.expect(typed.outputText == "changed", "the edit survives a trip to Raw and back")
-        typed.minified = true
-        suite.expect(typed.formattedEdit == nil && typed.outputText == compact,
-                     "changing the layout lays the text out again")
-        typed.formattedEdit = "again"
-        typed.dataType = .text
-        suite.expect(typed.formattedEdit == nil, "changing the type drops the edit")
-        typed.formattedEdit = "again"
-        typed.draft = #"{"q":1}"#
-        suite.expect(typed.formattedEdit == nil, "changing Raw drops it too")
-
-        // Text that is not the chosen type is shown as it is, and flagged.
-        let broken = ClipboardEditorModel(original: "not { json", source: .liveClipboard)
-        suite.expect(broken.dataType == .text, "text that parses as nothing starts on Text")
-        broken.dataType = .json
-        broken.tab = .formatted
-        suite.expect(broken.formattedText() == .init(text: "not { json", isValid: false)
-                        && broken.outputText == "not { json",
-                     "the wrong type leaves the text alone and says so")
-        suite.expect(commit(broken, FakeHistory([])) == .unchanged, "and writes nothing")
-        broken.dataType = .text
-        suite.expect(broken.formattedText().isValid && broken.outputText == "not { json",
-                     "Text is always valid and unchanged, even minified")
-
-        // Already-formatted text has nothing to change.
-        let tidy = ClipboardEditorModel(original: pretty, source: .liveClipboard)
-        tidy.tab = .formatted
-        suite.expect(tidy.outputText == pretty && !tidy.hasChanges, "formatting formatted text changes nothing")
-
-        let xml = ClipboardEditorModel(original: "<a><b>1</b></a>", source: .liveClipboard)
-        suite.expect(xml.dataType == .xml, "XML is detected too")
-        xml.tab = .formatted
-        suite.expect(xml.formattedText().isValid && xml.outputText.contains("\n"), "and laid out on lines")
+        model.draft = compact
+        model.draft = pretty
+        suite.expect(!model.hasChanges, "going back to the original text leaves nothing to write")
     }
 
     private static func preferences(_ suite: TestSuite) {

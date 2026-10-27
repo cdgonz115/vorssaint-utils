@@ -10,75 +10,95 @@
 import AppKit
 import SwiftUI
 
-/// The clipboard editor inside the island: the copied text in a monospaced
-/// editor, with a button back to the history and two tabs.
+/// The clipboard editor inside the island, built like the scratchpad: a
+/// condensed top bar with the way back to the history, a strip of the pinned
+/// clipboards to switch between, and the find opener; the text in a monospaced
+/// editor; and a bottom bar with the writing tools, Minify, and the type the
+/// text is.
 ///
-/// Raw is the text exactly as it is, and the only place it is typed in.
-/// Formatted reads the same text as a chosen type (text, JSON or XML) and lays
-/// it out, indented or compact, without touching the text itself.
+/// The type is how the text gets laid out. Text is left alone. JSON and XML
+/// are indented in place when chosen, as one edit that undo takes back, and
+/// Minify compacts them the same way. Markdown keeps the text as it is and
+/// offers the scratchpad's writing tools and a rendered preview.
 ///
-/// There is no Save button. What the open tab shows goes back to the clipboard
-/// when the editor closes, which is any of: the list button, the island
-/// collapsing, or another app coming to the front (the island stays open when
-/// it is pinned, so that case is handled here and not left to the island
-/// closing). Undo is the way to cancel; undoing every edit commits nothing.
+/// There is no Save button. What the editor shows goes back to the clipboard
+/// when it closes, which is any of: the list button, the island collapsing,
+/// switching to another pinned clipboard, or another app coming to the front
+/// (the island stays open when it is pinned, so that case is handled here and
+/// not left to the island closing). Undo is the way to cancel; undoing every
+/// edit commits nothing.
 struct NotchClipboardEditorView: View {
     @ObservedObject var model: ClipboardEditorModel
     /// Returns the page to the history. The edit has already been committed.
     let onShowHistory: () -> Void
+    /// Opens a pinned clipboard in the editor. The edit has already been committed.
+    let onSwitch: (ClipboardHistoryEntry) -> Void
     @ObservedObject private var history = ClipboardHistoryService.shared
     @ObservedObject private var l10n = L10n.shared
-    @State private var rawEditor = EditorHandle()
-    @State private var formattedEditor = EditorHandle()
+    @State private var editor = EditorHandle()
+    @State private var preview = EditorHandle()
     @State private var showFind = false
     /// The replace row stays out of the way until it is asked for, as in a
     /// code editor: most searches are only searches.
     @State private var showReplace = false
+    // Read here so a change in the text editor's settings shows up at once.
+    private var formatSettings = TextEditorFormatSettings()
     private var text: ClipboardEditorStrings { FeatureStrings.clipboardEditor(l10n.language) }
-    private var toolsText: TextToolsStrings { FeatureStrings.textTools(l10n.language) }
+
+    init(model: ClipboardEditorModel, onShowHistory: @escaping () -> Void,
+         onSwitch: @escaping (ClipboardHistoryEntry) -> Void) {
+        self.model = model
+        self.onShowHistory = onShowHistory
+        self.onSwitch = onSwitch
+    }
 
     private static let fontSize: CGFloat = 12
     private static let editorInset = NSSize(width: 6, height: 6)
+    private static let barHeight: CGFloat = 28
 
-    /// Holds an editor's text view so a close can flush composing text and the
+    /// Holds the editor's text view so a close can flush composing text and the
     /// find bar can select in it. Weak, since the view belongs to the editor.
     private final class EditorHandle {
         weak var view: NSTextView?
     }
 
-    /// The text view of whichever tab is showing.
-    private var activeView: NSTextView? {
-        model.tab == .raw ? rawEditor.view : formattedEditor.view
-    }
+    private var isMarkdown: Bool { model.dataType == .markdown }
 
     var body: some View {
-        VStack(spacing: NotchLayout.rowSpacing) {
-            toolbar
+        VStack(spacing: 6) {
+            topBar
+                .frame(height: 24)
 
-            if showFind {
-                NotchFindReplaceBar(textView: { activeView }, text: model.outputText,
-                                    showReplace: $showReplace, onClose: closeFind)
+            // The writing tools are there whenever Markdown is being edited.
+            if isMarkdown && !model.isPreviewing {
+                ScratchpadFormatBar(style: .island, editor: editor.view,
+                                    onApply: { editor.view?.applyMark($0) })
+                    .frame(height: Self.barHeight)
             }
 
-            ZStack {
-                // Kept alive under Formatted so its undo history and caret are
-                // still there when the person comes back to it.
-                rawTextView
-                    .opacity(model.tab == .raw ? 1 : 0)
-                    .allowsHitTesting(model.tab == .raw)
-                    .accessibilityHidden(model.tab != .raw)
-                if model.tab == .formatted {
-                    formattedTextView
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .modifier(NotchControlSurface(cornerRadius: 12, interactive: false))
+            editorSurface
 
-            if model.tab == .formatted {
-                formatFooter
-            }
+            NotchEditorBottomBar(dataType: $model.dataType,
+                                 isPreviewing: model.isPreviewing, isEmpty: model.draft.isEmpty,
+                                 textView: { editor.view }, onTogglePreview: togglePreview)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // A pinned clipboard opens as the type it was left on.
+        .onAppear {
+            guard let id = selectedPinnedID,
+                  let raw = TextEditorTypeStore.rawType(for: id, in: TextEditorTypeStore.load()),
+                  let type = ClipboardEditorModel.DataType(rawValue: raw) else { return }
+            model.dataType = type
+            // Markdown opens as its preview, the way it reads best.
+            if type == .markdown && !model.draft.isEmpty { model.isPreviewing = true }
+        }
+        // Leaving Markdown puts its tools and preview away.
+        .onChange(of: model.dataType) { _, type in
+            rememberType(type)
+            guard type != .markdown else { return }
+            model.isPreviewing = false
+            DispatchQueue.main.async { focusEditor() }
+        }
         // Command-F and Command-R are buttons of their own, since a button
         // holds a single shortcut and the toolbar's only opens or closes.
         .background {
@@ -110,197 +130,135 @@ struct NotchClipboardEditorView: View {
         }
     }
 
-    // MARK: - Toolbar
+    // MARK: - Bars
 
-    /// Three separate pieces: the way back to the history, the find bar's
-    /// opener in the middle, and the tabs on the right.
-    private var toolbar: some View {
-        HStack(spacing: NotchLayout.rowSpacing) {
+    /// Condensed and without a background, like the scratchpad's: the way back
+    /// to the history and the pinned clipboards to switch between. Find is
+    /// the keyboard's: Command-F and Command-R.
+    private var topBar: some View {
+        HStack(spacing: 4) {
             NotchIconButton(symbol: "list.bullet", title: text.defaultViewHistory) { commitAndLeave() }
-                .frame(width: NotchLayout.clipboardSearchHeight, height: NotchLayout.clipboardSearchHeight)
-                .modifier(NotchControlSurface(cornerRadius: NotchLayout.clipboardSearchHeight / 2))
-
-            Button {
-                if showFind { closeFind() } else { showFind = true }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
-                    Text(toolsText.find)
-                    Spacer(minLength: 0)
-                }
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(showFind ? 0.9 : 0.55))
-                .padding(.horizontal, 12)
+            NotchChipStrip(items: pinned, selectedID: selectedPinnedID) { chip($0) }
                 .frame(maxWidth: .infinity)
-                .frame(height: NotchLayout.clipboardSearchHeight)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .modifier(NotchControlSurface(cornerRadius: 14))
-            .accessibilityLabel(toolsText.findToggle)
-            .accessibilityAddTraits(showFind ? .isSelected : [])
-
-            HStack(spacing: 2) {
-                pill(text.raw, selected: model.tab == .raw) { select(.raw) }
-                pill(text.formatted, selected: model.tab == .formatted) { select(.formatted) }
-            }
-            .padding(.horizontal, 8)
-            .frame(height: NotchLayout.clipboardSearchHeight)
-            .modifier(NotchControlSurface(cornerRadius: 14))
         }
     }
 
-    /// Under the text on Formatted, as two separate pieces: a settings menu on
-    /// the left (Minify for now, with room for more) and the type the text is
-    /// read as on the right. Choosing a type lays the text out again, indented.
-    private var formatFooter: some View {
-        HStack(spacing: NotchLayout.rowSpacing) {
-            footerMenu(cornerRadius: NotchLayout.clipboardSearchHeight / 2, title: text.formatted) {
-                Toggle(text.minify, isOn: $model.minified)
-                    .disabled(model.dataType == .text)
-            } label: {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .frame(width: NotchLayout.clipboardSearchHeight,
-                           height: NotchLayout.clipboardSearchHeight)
-            }
-
-            if !model.formattedText().isValid {
-                Text(invalidMessage)
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(Color.orange)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
-
-            footerMenu(cornerRadius: 14, title: typeName(model.dataType)) {
-                ForEach(ClipboardEditorModel.DataType.allCases, id: \.self) { type in
-                    Button {
-                        model.dataType = type
-                        model.minified = false
-                    } label: {
-                        if model.dataType == type {
-                            Label(typeName(type), systemImage: "checkmark")
-                        } else {
-                            Text(typeName(type))
-                        }
-                    }
-                }
-            } label: {
-                HStack(spacing: 5) {
-                    Text(typeName(model.dataType))
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 8, weight: .semibold))
-                }
-                .font(.system(size: 11.5, weight: .medium))
-                .foregroundStyle(.white.opacity(0.85))
-                .padding(.horizontal, 12)
-                .frame(height: NotchLayout.clipboardSearchHeight)
-            }
-        }
+    private var pinned: [ClipboardHistoryEntry] {
+        history.pinnedEntries.filter { $0.kind == .text }
     }
 
-    /// A menu drawn the way the toolbar's buttons are. The system menu styles
-    /// draw their own label and drop a background put on it, so the look is
-    /// drawn here and an invisible menu sits over it to take the click.
-    private func footerMenu<Items: View, Label: View>(
-        cornerRadius: CGFloat, title: String,
-        @ViewBuilder items: () -> Items,
-        @ViewBuilder label: () -> Label
-    ) -> some View {
-        label()
-            .modifier(NotchControlSurface(cornerRadius: cornerRadius))
-            .overlay {
-                Menu {
-                    items()
-                } label: {
-                    Color.clear
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .contentShape(Rectangle())
-                }
-                // The button style hands the whole frame to the label, so the
-                // click area is as big as the background. The borderless style
-                // only answers over the middle of a small control.
-                .menuStyle(.button)
-                .buttonStyle(.plain)
-                .menuIndicator(.hidden)
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel(title)
+    private var selectedPinnedID: UUID? {
+        if case .entry(let id) = model.source { return id }
+        return nil
     }
 
-    /// A small selectable label in the island's style.
-    private func pill(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 11.5, weight: .medium))
-                .foregroundStyle(selected ? .white : .white.opacity(0.55))
-                .padding(.horizontal, 11)
-                .frame(height: 24)
-                .background(.white.opacity(selected ? 0.12 : 0), in: Capsule())
+    private func chip(_ entry: ClipboardHistoryEntry) -> some View {
+        let selected = entry.id == selectedPinnedID
+        return Button { switchTo(entry) } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 8, weight: .semibold))
+                Text(number(of: entry))
+                    .font(.system(size: 11, weight: .medium))
+            }
+                .lineLimit(1)
+                .foregroundStyle(selected ? .white : .white.opacity(0.6))
+                .padding(.horizontal, 10)
+                .frame(height: 22)
+                .background(.white.opacity(selected ? 0.14 : 0.05), in: Capsule())
                 .contentShape(Capsule())
         }
-        .buttonStyle(NotchButtonStyle(cornerRadius: 12))
+        .buttonStyle(NotchButtonStyle(cornerRadius: 11, lifts: false))
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
-    private func typeName(_ type: ClipboardEditorModel.DataType) -> String {
-        switch type {
-        case .text: return text.typeText
-        case .json: return "JSON"
-        case .xml: return "XML"
+    /// Pinned clipboards are numbered by their place among the pins.
+    private func number(of entry: ClipboardHistoryEntry) -> String {
+        "\((pinned.firstIndex { $0.id == entry.id } ?? 0) + 1)"
+    }
+
+    // MARK: - Text
+
+    private var editorSurface: some View {
+        ZStack {
+            PlainTextEditor(text: $model.draft,
+                            fontSize: Self.fontSize,
+                            textColor: .white,
+                            textContainerInset: Self.editorInset,
+                            usesFindBar: false,
+                            topContentInset: topInset,
+                            ownsUndoManager: true,
+                            highlighting: formatSettings.highlighting(for: model.dataType.structured)) { view in
+                // Same point size as the editor's own font, so it does not put
+                // the proportional font back when the view updates.
+                view.font = .monospacedSystemFont(ofSize: Self.fontSize, weight: .regular)
+                view.insertionPointColor = .white
+                editor.view = view
+                DispatchQueue.main.async { focusEditor() }
+            }
+            .opacity(model.isPreviewing ? 0 : 1)
+            .allowsHitTesting(!model.isPreviewing)
+            .accessibilityHidden(model.isPreviewing)
+            if model.isPreviewing {
+                MarkdownPreview(blocks: ScratchpadSupport.markdownPreview(model.draft),
+                                baseSize: Self.fontSize, topContentInset: topInset) { preview.view = $0 }
+            }
+            // Over the text, whatever the text view does with its layers.
+            findBar
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .zIndex(10)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .modifier(NotchControlSurface(cornerRadius: 12, interactive: false))
+    }
+
+    /// The find bar floats over the top right of the text, as in a code
+    /// editor, and the text gets room above it instead of shrinking.
+    @ViewBuilder
+    private var findBar: some View {
+        if showFind {
+            NotchFindReplaceBar(textView: { model.isPreviewing ? preview.view : editor.view },
+                                text: model.isPreviewing ? (preview.view?.string ?? "") : model.draft,
+                                showReplace: $showReplace, allowsReplace: !model.isPreviewing,
+                                onClose: closeFind)
+                .frame(maxWidth: 420)
+                .padding(6)
         }
     }
 
-    private var invalidMessage: String {
-        model.dataType == .xml ? text.invalidXML : text.invalidJSON
-    }
-
-    // MARK: - Text views
-
-    /// Raw: the text as it is.
-    private var rawTextView: some View {
-        textEditor(text: $model.draft, handle: rawEditor)
-    }
-
-    /// The same text read as the chosen type, edited like Raw. The layout is
-    /// worked out again, and what was typed here dropped, when the text on
-    /// Raw, the type or Minify changes.
-    private var formattedTextView: some View {
-        textEditor(text: Binding(get: { model.formattedText().text },
-                                 set: { model.formattedEdit = $0 }),
-                   handle: formattedEditor)
-    }
-
-    /// The one editor both tabs are built from, so they look and behave the
-    /// same: anything set up here is set up for each.
-    private func textEditor(text: Binding<String>, handle: EditorHandle) -> some View {
-        PlainTextEditor(text: text,
-                        fontSize: Self.fontSize,
-                        textColor: .white,
-                        textContainerInset: Self.editorInset,
-                        usesFindBar: false,
-                        ownsUndoManager: true) { view in
-            // Same point size as the editor's own font, so it does not put
-            // the proportional font back when the view updates.
-            view.font = .monospacedSystemFont(ofSize: Self.fontSize, weight: .regular)
-            view.insertionPointColor = .white
-            handle.view = view
-            DispatchQueue.main.async { focusEditor() }
-        }
+    /// Room above the text for the find bar while it is showing.
+    private var topInset: CGFloat {
+        showFind ? NotchFindReplaceBar.floatingHeight(showingReplace: showReplace && !model.isPreviewing) : 0
     }
 
     // MARK: - Actions
 
-    private func select(_ tab: ClipboardEditorModel.Tab) {
-        guard model.tab != tab else { return }
+    private func togglePreview() {
         flushComposition()
-        model.tab = tab
-        // Opening Formatted starts from the indented layout.
-        if tab == .formatted { model.minified = false }
-        DispatchQueue.main.async { focusEditor() }
+        // A preview is searched but not replaced in.
+        showReplace = false
+        withAnimation(.easeOut(duration: 0.15)) { model.isPreviewing.toggle() }
+        if !model.isPreviewing && !showFind { DispatchQueue.main.async { focusEditor() } }
     }
+
+    /// Only pinned clipboards keep their type; the rest of the history comes and goes.
+    private func rememberType(_ type: ClipboardEditorModel.DataType) {
+        guard let id = selectedPinnedID else { return }
+        TextEditorTypeStore.save(TextEditorTypeStore.updated(
+            TextEditorTypeStore.load(), setting: type.rawValue, for: id,
+            keeping: Set(pinned.map(\.id))))
+    }
+
+    private func switchTo(_ entry: ClipboardHistoryEntry) {
+        guard entry.id != selectedPinnedID else { return }
+        flushComposition()
+        model.commit(to: history) { outcome in
+            if outcome == .failed { NSSound.beep() }
+        }
+        onSwitch(entry)
+    }
+
+    // MARK: - Actions
 
     /// Command-F: the find row, then back out one step at a time. With the
     /// replace row showing it only puts that away; the next press closes the bar.
@@ -316,6 +274,11 @@ struct NotchClipboardEditorView: View {
 
     /// Command-R: everything out, or everything away.
     private func toggleFindAndReplace() {
+        // A preview has no replace row, so this is only the find bar.
+        if model.isPreviewing {
+            if showFind { closeFind() } else { showFind = true }
+            return
+        }
         if showFind && showReplace {
             closeFind()
         } else {
@@ -341,14 +304,12 @@ struct NotchClipboardEditorView: View {
 
     /// Text an input method is still composing is not in the draft yet.
     private func flushComposition() {
-        for view in [rawEditor.view, formattedEditor.view] {
-            if let view, view.hasMarkedText() { view.unmarkText() }
-        }
+        if let view = editor.view, view.hasMarkedText() { view.unmarkText() }
     }
 
     /// The caret starts at the top, where the beginning of the data is.
     private func focusEditor() {
-        guard let view = activeView, let window = view.window, window.isKeyWindow else { return }
+        guard !model.isPreviewing, let view = editor.view, let window = view.window, window.isKeyWindow else { return }
         window.makeFirstResponder(view)
     }
 }

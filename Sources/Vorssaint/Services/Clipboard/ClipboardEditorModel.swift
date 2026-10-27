@@ -46,117 +46,58 @@ final class ClipboardEditorModel: ObservableObject {
         case failed
     }
 
-    /// Which view is showing, and so which text a close writes back.
-    enum Tab: Equatable {
-        /// The text exactly as it is.
-        case raw
-        /// The same text read as a chosen type and laid out to match. It can
-        /// be edited too; see `formattedEdit`.
-        case formatted
-    }
-
-    /// What the Formatted tab reads the text as.
+    /// What the text is treated as. Choosing JSON or XML lays the text out as
+    /// that, and the editor does it as an edit that can be undone; Markdown
+    /// turns on the writing tools and the preview; Text leaves it alone.
     enum DataType: String, CaseIterable {
-        case text, json, xml
+        case text, json, xml, markdown
 
-        /// The format the text tools parse, or nil for plain text, which is
-        /// shown as it is.
+        /// The format the text tools parse, or nil for the types that are
+        /// not laid out by parsing.
+        /// The extension a file of this type is saved with.
+        var fileExtension: String {
+            switch self {
+            case .text: return "txt"
+            case .json: return "json"
+            case .xml: return "xml"
+            case .markdown: return "md"
+            }
+        }
+
         var structured: TextToolsSupport.Format? {
             switch self {
-            case .text: return nil
             case .json: return .json
             case .xml: return .xml
-            }
-        }
-
-        /// What the text parses as, so the type starts on the right choice.
-        static func detect(_ text: String) -> DataType {
-            switch TextToolsSupport.detectFormat(text) {
-            case .json?: return .json
-            case .xml?: return .xml
-            case nil: return .text
+            case .text, .markdown: return nil
             }
         }
     }
 
-    /// What the Formatted tab shows. `isValid` is false when the text is not
-    /// the chosen type; the text is then shown unchanged.
-    struct FormattedText: Equatable {
-        let text: String
-        let isValid: Bool
+    /// `text` laid out as `type`, indented or compact, or nil when it is not
+    /// that type. Text and Markdown are returned as they are.
+    static func laidOut(_ text: String, as type: DataType, minified: Bool) -> String? {
+        guard let format = type.structured else { return text }
+        return TextToolsSupport.render(text, as: format, minified: minified)
     }
 
     let source: Source
     /// What the text was when the editor opened, or as of the last commit.
     private(set) var original: String
-    /// The text being edited on Raw. A change here lays Formatted out again.
-    @Published var draft: String {
-        didSet { if draft != oldValue { formattedEdit = nil } }
-    }
-    @Published var tab: Tab = .raw
-    @Published var dataType: DataType {
-        didSet { if dataType != oldValue { formattedEdit = nil } }
-    }
-    /// Compact instead of indented. Plain text has no compact form.
-    @Published var minified = false {
-        didSet { if minified != oldValue { formattedEdit = nil } }
-    }
-    /// What was typed or replaced on Formatted. Formatted is worked out from
-    /// the draft, so its edits live beside it rather than in it: they are kept
-    /// while the person moves between tabs, and dropped when the draft, the
-    /// type or the layout changes, since the text is then laid out afresh.
-    @Published var formattedEdit: String?
+    /// The text being edited.
+    @Published var draft: String
+    @Published var dataType: DataType = .text
+    /// Markdown shown as it reads, in place of the text.
+    @Published var isPreviewing = false
 
     private var isCommitting = false
-    private var formattedCache: (key: FormatKey, value: FormattedText)?
-
-    private struct FormatKey: Equatable {
-        let draft: String
-        let dataType: DataType
-        let minified: Bool
-    }
 
     init(original: String, source: Source) {
         self.original = original
         self.source = source
         self.draft = original
-        self.dataType = DataType.detect(original)
     }
 
-    /// The draft read as the chosen type. Worked out when it is asked for and
-    /// remembered, since a large document is not cheap to lay out and the
-    /// view asks again whenever anything on the page changes.
-    func formattedText() -> FormattedText {
-        let generated = generatedFormattedText()
-        guard let formattedEdit else { return generated }
-        return FormattedText(text: formattedEdit, isValid: generated.isValid)
-    }
-
-    private func generatedFormattedText() -> FormattedText {
-        let key = FormatKey(draft: draft, dataType: dataType, minified: minified)
-        if let cached = formattedCache, cached.key == key { return cached.value }
-        let value: FormattedText
-        if let structured = dataType.structured {
-            if let text = TextToolsSupport.render(draft, as: structured, minified: minified) {
-                value = FormattedText(text: text, isValid: true)
-            } else {
-                value = FormattedText(text: draft, isValid: false)
-            }
-        } else {
-            value = FormattedText(text: draft, isValid: true)
-        }
-        formattedCache = (key, value)
-        return value
-    }
-
-    /// What closing the editor would write: what the open tab shows. Looking at
-    /// Formatted and closing therefore keeps the formatted text, and Raw never
-    /// changes anything but what was typed on it.
-    var outputText: String {
-        tab == .raw ? draft : formattedText().text
-    }
-
-    var hasChanges: Bool { outputText != original }
+    var hasChanges: Bool { draft != original }
 
     /// Writes the draft back, unless there is nothing worth writing.
     ///
@@ -168,7 +109,7 @@ final class ClipboardEditorModel: ObservableObject {
     func commit(to history: ClipboardEditorHistory, completion: @escaping (Outcome) -> Void) {
         // A commit already carrying this text is on its way.
         guard !isCommitting else { completion(.unchanged); return }
-        let text = outputText
+        let text = draft
         guard text != original else { completion(.unchanged); return }
         guard ClipboardHistoryEditing.canSave(original: original, draft: text) else {
             completion(.notStorable)
