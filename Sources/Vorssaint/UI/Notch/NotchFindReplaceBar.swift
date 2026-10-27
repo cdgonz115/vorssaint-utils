@@ -24,6 +24,9 @@ struct NotchFindReplaceBar: View {
     /// Whether the replace row is showing. The owner holds it so a shortcut
     /// can show or hide it along with the bar.
     @Binding var showReplace: Bool
+    /// A request from outside to step to the next or previous match, as the
+    /// owner's Command-G does. A new serial is a new request.
+    var stepRequest: FindStepRequest?
     /// Esc inside either field: the owner puts the bar away.
     let onClose: () -> Void
 
@@ -118,6 +121,10 @@ struct NotchFindReplaceBar: View {
         .onAppear {
             prefillFromSelection()
             focusFindField()
+        }
+        .onChange(of: stepRequest) { _, request in
+            guard let request else { return }
+            step(backwards: request.backwards)
         }
         .onChange(of: find) { _, _ in replacedNote = nil }
         .onChange(of: isRegex) { _, _ in replacedNote = nil }
@@ -244,6 +251,13 @@ struct NotchFindReplaceBar: View {
             NSSound.beep()
         }
     }
+}
+
+/// One request to step through the matches. Equal requests are the same
+/// request, so the owner bumps `serial` to ask again.
+struct FindStepRequest: Equatable {
+    let serial: Int
+    let backwards: Bool
 }
 
 /// A `.*` button in the same square as the island's icon buttons.

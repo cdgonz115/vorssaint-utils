@@ -329,7 +329,7 @@ struct ScratchpadView: View {
         HStack(spacing: 12) {
             // Outside the disabled group below: an empty pad is exactly where
             // someone reaches for a heading, and the chip is how they find one.
-            footerButton("textformat", text.formatMarks,
+            footerButton("paragraphsign", text.formatMarks,
                          tint: service.marksExpanded ? .accentColor : nil) {
                 withAnimation(.easeOut(duration: 0.15)) { service.toggleMarks() }
             }

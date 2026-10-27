@@ -533,6 +533,7 @@ if (( TEST )); then
         Sources/Vorssaint/Core/SecureInputSupport.swift
         Sources/Vorssaint/Services/TextTools/TextToolsSupport.swift
         Sources/Vorssaint/Services/TextTools/SyntaxHighlightSupport.swift
+        Sources/Vorssaint/UI/TextViewEditing.swift
         Tests/*.swift
         build/generated-tests/*.swift
     )

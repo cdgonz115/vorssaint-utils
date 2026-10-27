@@ -18,8 +18,6 @@ struct ClipboardEditorStrings {
     let noticeView: String
     let format: String
     let minify: String
-    let raw: String
-    let formatted: String
     let typeText: String
     let invalidJSON: String
     let invalidXML: String
@@ -58,8 +56,6 @@ extension ClipboardEditorStrings {
         noticeView: "Clipboard notification opens on",
         format: "Format",
         minify: "Minify",
-        raw: "Raw",
-        formatted: "Formatted",
         typeText: "Text",
         invalidJSON: "Not valid JSON",
         invalidXML: "Not valid XML"
@@ -75,8 +71,6 @@ extension ClipboardEditorStrings {
         noticeView: "A notificação do clipboard abre em",
         format: "Formatar",
         minify: "Minificar",
-        raw: "Bruto",
-        formatted: "Formatado",
         typeText: "Texto",
         invalidJSON: "JSON inválido",
         invalidXML: "XML inválido"
@@ -92,8 +86,6 @@ extension ClipboardEditorStrings {
         noticeView: "Pano bildirimi şununla açılır",
         format: "Biçimlendir",
         minify: "Sıkıştır",
-        raw: "Ham",
-        formatted: "Biçimlendirilmiş",
         typeText: "Metin",
         invalidJSON: "Geçersiz JSON",
         invalidXML: "Geçersiz XML"
@@ -109,8 +101,6 @@ extension ClipboardEditorStrings {
         noticeView: "Уведомление буфера обмена открывается на",
         format: "Форматировать",
         minify: "Минифицировать",
-        raw: "Исходный",
-        formatted: "Форматированный",
         typeText: "Текст",
         invalidJSON: "Недопустимый JSON",
         invalidXML: "Недопустимый XML"
@@ -126,8 +116,6 @@ extension ClipboardEditorStrings {
         noticeView: "La notificación del portapapeles se abre en",
         format: "Dar formato",
         minify: "Minificar",
-        raw: "Sin formato",
-        formatted: "Formateado",
         typeText: "Texto",
         invalidJSON: "JSON no válido",
         invalidXML: "XML no válido"
@@ -143,8 +131,6 @@ extension ClipboardEditorStrings {
         noticeView: "Oznámenie schránky sa otvorí na",
         format: "Formátovať",
         minify: "Minifikovať",
-        raw: "Pôvodný",
-        formatted: "Formátovaný",
         typeText: "Text",
         invalidJSON: "Neplatný JSON",
         invalidXML: "Neplatný XML"
@@ -160,8 +146,6 @@ extension ClipboardEditorStrings {
         noticeView: "Zwischenablage-Hinweis öffnet mit",
         format: "Formatieren",
         minify: "Minimieren",
-        raw: "Roh",
-        formatted: "Formatiert",
         typeText: "Text",
         invalidJSON: "Kein gültiges JSON",
         invalidXML: "Kein gültiges XML"
@@ -177,8 +161,6 @@ extension ClipboardEditorStrings {
         noticeView: "La notification du presse-papiers s’ouvre sur",
         format: "Formater",
         minify: "Minifier",
-        raw: "Brut",
-        formatted: "Formaté",
         typeText: "Texte",
         invalidJSON: "JSON invalide",
         invalidXML: "XML invalide"
@@ -194,8 +176,6 @@ extension ClipboardEditorStrings {
         noticeView: "La notifica degli appunti si apre su",
         format: "Formatta",
         minify: "Minifica",
-        raw: "Originale",
-        formatted: "Formattato",
         typeText: "Testo",
         invalidJSON: "JSON non valido",
         invalidXML: "XML non valido"
@@ -211,8 +191,6 @@ extension ClipboardEditorStrings {
         noticeView: "クリップボード通知で開く画面",
         format: "整形",
         minify: "圧縮",
-        raw: "未加工",
-        formatted: "整形済み",
         typeText: "テキスト",
         invalidJSON: "無効なJSON",
         invalidXML: "無効なXML"
@@ -228,8 +206,6 @@ extension ClipboardEditorStrings {
         noticeView: "클립보드 알림 시작 화면",
         format: "정렬",
         minify: "압축",
-        raw: "원본",
-        formatted: "서식 적용",
         typeText: "텍스트",
         invalidJSON: "올바르지 않은 JSON",
         invalidXML: "올바르지 않은 XML"
@@ -245,8 +221,6 @@ extension ClipboardEditorStrings {
         noticeView: "剪贴板通知默认打开",
         format: "格式化",
         minify: "压缩",
-        raw: "原始",
-        formatted: "格式化",
         typeText: "文本",
         invalidJSON: "JSON 无效",
         invalidXML: "XML 无效"
@@ -262,8 +236,6 @@ extension ClipboardEditorStrings {
         noticeView: "剪貼簿通知預設開啟",
         format: "格式化",
         minify: "壓縮",
-        raw: "原始",
-        formatted: "已格式化",
         typeText: "文字",
         invalidJSON: "JSON 無效",
         invalidXML: "XML 無效"
@@ -279,8 +251,6 @@ extension ClipboardEditorStrings {
         noticeView: "剪貼簿通知預設開啟",
         format: "格式化",
         minify: "壓縮",
-        raw: "原始",
-        formatted: "已格式化",
         typeText: "文字",
         invalidJSON: "JSON 無效",
         invalidXML: "XML 無效"
@@ -296,8 +266,6 @@ extension ClipboardEditorStrings {
         noticeView: "Сповіщення буфера обміну відкривається на",
         format: "Форматувати",
         minify: "Мінімізувати",
-        raw: "Вихідний",
-        formatted: "Форматований",
         typeText: "Текст",
         invalidJSON: "Недійсний JSON",
         invalidXML: "Недійсний XML"

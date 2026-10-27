@@ -36,4 +36,23 @@ extension NSTextView {
         didChangeText()
         setSelectedRange(NSRange(location: range.location + (replacement as NSString).length, length: 0))
     }
+
+    /// Types the Markdown a writing-tools button stands for, through the text
+    /// view so one Command-Z takes the whole mark back. Any editor can use it;
+    /// it knows nothing about which one it is.
+    func applyMark(_ mark: ScratchpadMark) {
+        // A live input-method composition holds a marked range into the
+        // storage; editing around it leaves that range pointing at nothing.
+        if hasMarkedText() { unmarkText() }
+        // Clicking a button takes first responder away from the editor, and a
+        // selection set on a view that is not first responder does not show.
+        window?.makeFirstResponder(self)
+        let edit = ScratchpadSupport.edit(applying: mark, to: string, selection: selectedRange())
+        guard (string as NSString).substring(with: edit.range) != edit.replacement else { return }
+        guard shouldChangeText(in: edit.range, replacementString: edit.replacement) else { return }
+        replaceCharacters(in: edit.range, with: edit.replacement)
+        didChangeText()
+        setSelectedRange(edit.selection)
+        scrollRangeToVisible(edit.selection)
+    }
 }

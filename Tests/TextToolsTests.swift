@@ -260,6 +260,15 @@ enum TextToolsTests {
                      "xml: text between tags leaves out the whitespace around it")
         suite.expect(!kinds("<a b=\"c", .xml).isEmpty, "xml: an unclosed tag does not stop the scan")
 
+        suite.expect(SyntaxHighlightSupport.opens("  {\"a\"", as: .json)
+                        && SyntaxHighlightSupport.opens("[1,", as: .json)
+                        && SyntaxHighlightSupport.opens("\n<a", as: .xml),
+                     "a half-typed document still opens like its format")
+        suite.expect(!SyntaxHighlightSupport.opens("hello", as: .json)
+                        && !SyntaxHighlightSupport.opens("{", as: .xml)
+                        && !SyntaxHighlightSupport.opens("   ", as: .json),
+                     "anything else does not, and empty text opens like nothing")
+
         // Offsets are UTF-16 units, as AppKit counts them.
         suite.expect(tokens("[\"é😀\", 1]", .json).last?.range == NSRange(location: 9, length: 1),
                      "ranges count UTF-16 units, so an emoji is two")

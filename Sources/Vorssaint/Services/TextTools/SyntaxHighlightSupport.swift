@@ -54,6 +54,17 @@ enum SyntaxHighlightSupport {
         }
     }
 
+    /// Whether the text begins the way `format` does, without checking that it
+    /// parses. A document being typed into a shape that does not parse for a
+    /// moment still opens like what it is, so it can keep its colors.
+    static func opens(_ text: String, as format: TextToolsSupport.Format) -> Bool {
+        guard let first = text.first(where: { !$0.isWhitespace }) else { return false }
+        switch format {
+        case .json: return first == "{" || first == "["
+        case .xml: return first == "<"
+        }
+    }
+
     // MARK: - JSON
 
     private static func jsonTokens(_ u: [UInt16]) -> [Token] {

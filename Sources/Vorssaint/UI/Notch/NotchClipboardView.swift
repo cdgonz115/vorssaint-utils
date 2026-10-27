@@ -38,7 +38,11 @@ struct NotchClipboardView: View {
     var body: some View {
         Group {
             if let model = editing {
-                NotchClipboardEditorView(model: model) { editing = nil }
+                NotchClipboardEditorView(model: model, onShowHistory: { editing = nil },
+                                         onSwitch: { entry in
+                    editing = ClipboardEditorModel(original: entry.text, source: .entry(entry.id))
+                })
+                .id(ObjectIdentifier(model))
             } else {
                 historyPage
             }
