@@ -18,6 +18,7 @@ enum TextToolsTests {
         suite.run("text tools navigation") { navigation(suite) }
         suite.run("text tools syntax") { syntax(suite) }
         suite.run("text editor preferences") { preferences(suite) }
+        suite.run("text editor types") { types(suite) }
     }
 
     private static func json(_ suite: TestSuite) {
@@ -336,5 +337,26 @@ enum TextToolsTests {
         suite.expect(!SettingsBackupSupport.valueLooksRight(Prefs.colorsKey(.json), true)
                         && SettingsBackupSupport.valueLooksRight(Prefs.colorsKey(.json), stored),
                      "restored colors have to be text")
+    }
+
+    private static func types(_ suite: TestSuite) {
+        typealias Store = TextEditorTypeStore
+        let a = UUID(), b = UUID(), gone = UUID()
+        var stored = Store.updated([:], setting: "json", for: a, keeping: [a, b])
+        suite.expect(Store.rawType(for: a, in: stored) == "json", "a chosen type is remembered")
+        suite.expect(Store.rawType(for: b, in: stored) == nil, "an item never chosen has none")
+        stored = Store.updated(stored, setting: "xml", for: gone, keeping: [a, b])
+        stored = Store.updated(stored, setting: "markdown", for: b, keeping: [a, b])
+        suite.expect(Store.rawType(for: gone, in: stored) == nil, "ids that are no longer live are dropped")
+        suite.expect(Store.rawType(for: a, in: stored) == "json" && Store.rawType(for: b, in: stored) == "markdown",
+                     "the live ones are kept")
+        stored = Store.updated(stored, setting: "text", for: a, keeping: [a, b])
+        suite.expect(Store.rawType(for: a, in: stored) == nil, "going back to Text keeps nothing")
+        let suiteName = "vorss.tests.text-editor-types"
+        if let defaults = UserDefaults(suiteName: suiteName) {
+            Store.save(stored, defaults)
+            suite.expect(Store.load(defaults) == stored, "the store round-trips through defaults")
+            defaults.removePersistentDomain(forName: suiteName)
+        }
     }
 }

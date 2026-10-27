@@ -21,8 +21,9 @@ struct NotchScratchpadView: View {
     @State private var showFind = false
     @State private var showReplace = false
     @State private var findStep: FindStepRequest?
-    /// The type each pad's text is, as chosen under the editor. Pads start on Text.
-    @State private var types: [UUID: ClipboardEditorModel.DataType] = [:]
+    /// The type each pad's text is, as chosen under the editor, kept between
+    /// launches. Pads start on Text.
+    @State private var types: [String: String] = TextEditorTypeStore.load()
     private var formatSettings = TextEditorFormatSettings()
     @AppStorage(DefaultsKey.scratchpadTextSize) private var storedTextSize = ScratchpadSupport.defaultTextSize
     private var text: ScratchpadFeatureStrings { FeatureStrings.scratchpad(l10n.language) }
@@ -37,12 +38,19 @@ struct NotchScratchpadView: View {
     }
 
     private var currentType: ClipboardEditorModel.DataType {
-        pad.selectedPadID.flatMap { types[$0] } ?? .text
+        pad.selectedPadID
+            .flatMap { TextEditorTypeStore.rawType(for: $0, in: types) }
+            .flatMap(ClipboardEditorModel.DataType.init(rawValue:)) ?? .text
     }
 
     private var dataType: Binding<ClipboardEditorModel.DataType> {
         Binding(get: { currentType },
-                set: { if let id = pad.selectedPadID { types[id] = $0 } })
+                set: { type in
+                    guard let id = pad.selectedPadID else { return }
+                    types = TextEditorTypeStore.updated(types, setting: type.rawValue, for: id,
+                                                        keeping: Set(pad.pads.map(\.id)))
+                    TextEditorTypeStore.save(types)
+                })
     }
 
     private var selectedPad: ScratchpadPad? { pad.pads.first { $0.id == pad.selectedPadID } }
@@ -92,10 +100,15 @@ struct NotchScratchpadView: View {
             if pad.isPreviewing { pad.togglePreview() }
             if pad.marksExpanded { pad.toggleMarks() }
         }
-        .onAppear { loadFailed = !pad.loadForEmbedding() }
+        .onAppear {
+            loadFailed = !pad.loadForEmbedding()
+            openMarkdownPreview()
+        }
         .onDisappear { pad.commitEdits() }
         .onChange(of: pad.selectedPadID) { _, _ in
-            DispatchQueue.main.async { focusEditor() }
+            DispatchQueue.main.async {
+                if !openMarkdownPreview() { focusEditor() }
+            }
         }
         .onChange(of: pad.isPreviewing) { _, previewing in
             guard let view = editor.view else { return }
@@ -326,6 +339,15 @@ struct NotchScratchpadView: View {
             guard let view = editor.view, let window = view.window, window.isKeyWindow else { return }
             window.makeFirstResponder(view)
         }
+    }
+
+    /// A Markdown pad opens as its preview, the way it reads best. Returns
+    /// whether it did.
+    @discardableResult
+    private func openMarkdownPreview() -> Bool {
+        guard currentType == .markdown, !pad.isPreviewing, !pad.text.isEmpty else { return false }
+        pad.togglePreview()
+        return true
     }
 
     /// The caret lands at the end of the pad's text, as the floating pad

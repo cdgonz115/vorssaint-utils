@@ -408,6 +408,7 @@ if (( TEST )); then
         Sources/Vorssaint/Core/TextToolsStrings.swift
         Sources/Vorssaint/Core/TextEditorStrings.swift
         Sources/Vorssaint/Services/TextTools/TextEditorPreferences.swift
+        Sources/Vorssaint/Services/TextTools/TextEditorTypeStore.swift
         Sources/Vorssaint/Core/ColorValue.swift
         Sources/Vorssaint/Services/Clipboard/ClipboardAutoClearSupport.swift
         Sources/Vorssaint/Services/AutoQuit/AutoQuitSupport.swift

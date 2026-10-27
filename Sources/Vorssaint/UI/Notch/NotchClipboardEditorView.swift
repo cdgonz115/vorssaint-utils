@@ -87,8 +87,18 @@ struct NotchClipboardEditorView: View {
                                  textView: { editor.view }, onTogglePreview: togglePreview)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // A pinned clipboard opens as the type it was left on.
+        .onAppear {
+            guard let id = selectedPinnedID,
+                  let raw = TextEditorTypeStore.rawType(for: id, in: TextEditorTypeStore.load()),
+                  let type = ClipboardEditorModel.DataType(rawValue: raw) else { return }
+            model.dataType = type
+            // Markdown opens as its preview, the way it reads best.
+            if type == .markdown && !model.draft.isEmpty { model.isPreviewing = true }
+        }
         // Leaving Markdown puts its tools and preview away.
         .onChange(of: model.dataType) { _, type in
+            rememberType(type)
             guard type != .markdown else { return }
             model.isPreviewing = false
             showTools = false
@@ -209,6 +219,14 @@ struct NotchClipboardEditorView: View {
         closeFindQuietly()
         withAnimation(.easeOut(duration: 0.15)) { model.isPreviewing.toggle() }
         if !model.isPreviewing { DispatchQueue.main.async { focusEditor() } }
+    }
+
+    /// Only pinned clipboards keep their type; the rest of the history comes and goes.
+    private func rememberType(_ type: ClipboardEditorModel.DataType) {
+        guard let id = selectedPinnedID else { return }
+        TextEditorTypeStore.save(TextEditorTypeStore.updated(
+            TextEditorTypeStore.load(), setting: type.rawValue, for: id,
+            keeping: Set(pinned.map(\.id))))
     }
 
     private func switchTo(_ entry: ClipboardHistoryEntry) {
