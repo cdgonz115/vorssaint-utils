@@ -11,8 +11,7 @@ import AppKit
 import SwiftUI
 
 /// The row under the island's text editors, written once for the clipboard
-/// editor and the scratchpad so they behave the same: the writing tools
-/// (Markdown), Minify (JSON and XML), the preview (Markdown), and the type the
+/// editor and the scratchpad so they behave the same: Minify (JSON and XML), the preview (Markdown), and the type the
 /// text is on the right.
 ///
 /// Choosing JSON or XML indents the text in place, through the text view, so
@@ -20,8 +19,6 @@ import SwiftUI
 /// not that type is left alone and says so.
 struct NotchEditorBottomBar: View {
     @Binding var dataType: ClipboardEditorModel.DataType
-    /// Whether the writing tools row is showing above the text.
-    @Binding var showTools: Bool
     let isPreviewing: Bool
     let isEmpty: Bool
     let textView: () -> NSTextView?
@@ -36,11 +33,10 @@ struct NotchEditorBottomBar: View {
     private var padText: ScratchpadFeatureStrings { FeatureStrings.scratchpad(l10n.language) }
     private static let barHeight: CGFloat = 28
 
-    init(dataType: Binding<ClipboardEditorModel.DataType>, showTools: Binding<Bool>,
+    init(dataType: Binding<ClipboardEditorModel.DataType>,
          isPreviewing: Bool, isEmpty: Bool,
          textView: @escaping () -> NSTextView?, onTogglePreview: @escaping () -> Void) {
         _dataType = dataType
-        _showTools = showTools
         self.isPreviewing = isPreviewing
         self.isEmpty = isEmpty
         self.textView = textView
@@ -58,10 +54,6 @@ struct NotchEditorBottomBar: View {
                 }
             }
             if isMarkdown {
-                NotchIconButton(symbol: "paragraphsign", title: padText.formatMarks, selected: showTools) {
-                    withAnimation(.easeOut(duration: 0.15)) { showTools.toggle() }
-                }
-                .disabled(isPreviewing)
                 NotchIconButton(symbol: isPreviewing ? "pencil" : "eye",
                                 title: isPreviewing ? padText.editText : padText.previewFormatting,
                                 selected: isPreviewing, action: onTogglePreview)

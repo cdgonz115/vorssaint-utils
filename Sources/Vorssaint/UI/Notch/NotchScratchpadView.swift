@@ -70,15 +70,14 @@ struct NotchScratchpadView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     // The writing tools get a row of their own above the text,
-                    // so the tabs are still there to change pad with.
-                    if pad.marksExpanded {
+                    // so the tabs are still there to change pad with. They are there whenever
+                    // Markdown is being edited.
+                    if currentType == .markdown && !pad.isPreviewing {
                         markRow
                             .frame(height: 28)
                     }
                     editorSurface
                     NotchEditorBottomBar(dataType: dataType,
-                                         showTools: Binding(get: { pad.marksExpanded },
-                                                            set: { if $0 != pad.marksExpanded { pad.toggleMarks() } }),
                                          isPreviewing: pad.isPreviewing, isEmpty: pad.text.isEmpty,
                                          textView: { editor.view }, onTogglePreview: pad.togglePreview)
                 }
@@ -98,7 +97,6 @@ struct NotchScratchpadView: View {
         .onChange(of: currentType) { _, type in
             guard type != .markdown else { return }
             if pad.isPreviewing { pad.togglePreview() }
-            if pad.marksExpanded { pad.toggleMarks() }
         }
         .onAppear {
             loadFailed = !pad.loadForEmbedding()

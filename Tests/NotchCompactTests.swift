@@ -100,7 +100,6 @@ enum NotchCompactTests {
     }
     struct NotchEditorBottomBar: View {
         @Binding var dataType: ClipboardEditorModel.DataType
-        @Binding var showTools: Bool
         let isPreviewing: Bool
         let isEmpty: Bool
         let textView: () -> NSTextView?

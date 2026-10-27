@@ -41,7 +41,6 @@ struct NotchClipboardEditorView: View {
     /// The replace row stays out of the way until it is asked for, as in a
     /// code editor: most searches are only searches.
     @State private var showReplace = false
-    @State private var showTools = false
     // Read here so a change in the text editor's settings shows up at once.
     private var formatSettings = TextEditorFormatSettings()
     private var text: ClipboardEditorStrings { FeatureStrings.clipboardEditor(l10n.language) }
@@ -70,7 +69,8 @@ struct NotchClipboardEditorView: View {
             topBar
                 .frame(height: 24)
 
-            if showTools && isMarkdown && !model.isPreviewing {
+            // The writing tools are there whenever Markdown is being edited.
+            if isMarkdown && !model.isPreviewing {
                 ScratchpadFormatBar(style: .island, editor: editor.view,
                                     onApply: { editor.view?.applyMark($0) })
                     .frame(height: Self.barHeight)
@@ -78,7 +78,7 @@ struct NotchClipboardEditorView: View {
 
             editorSurface
 
-            NotchEditorBottomBar(dataType: $model.dataType, showTools: $showTools,
+            NotchEditorBottomBar(dataType: $model.dataType,
                                  isPreviewing: model.isPreviewing, isEmpty: model.draft.isEmpty,
                                  textView: { editor.view }, onTogglePreview: togglePreview)
         }
@@ -97,7 +97,6 @@ struct NotchClipboardEditorView: View {
             rememberType(type)
             guard type != .markdown else { return }
             model.isPreviewing = false
-            showTools = false
             DispatchQueue.main.async { focusEditor() }
         }
         // Command-F and Command-R are buttons of their own, since a button
