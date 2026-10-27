@@ -112,6 +112,7 @@ enum NotchCompactTests {
         let backwards: Bool
     }
     struct NotchFindReplaceBar: View {
+        static func floatingHeight(showingReplace: Bool) -> CGFloat { 0 }
         let textView: () -> NSTextView?
         let text: String
         @Binding var showReplace: Bool

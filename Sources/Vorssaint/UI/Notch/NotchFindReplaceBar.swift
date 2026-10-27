@@ -54,17 +54,26 @@ struct NotchFindReplaceBar: View {
         let caseSensitive: Bool
     }
 
+    /// The room a floating bar takes, with the margin around it: what the
+    /// text above is moved down by. The rows are a fixed height, so this is
+    /// known without measuring the bar after it is up.
+    static func floatingHeight(showingReplace: Bool) -> CGFloat {
+        let row: CGFloat = 22
+        let bar = 4 + row + (showingReplace ? 3 + row : 0) + 4
+        return bar + 12
+    }
+
     var body: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 6) {
+        VStack(spacing: 3) {
+            HStack(spacing: 4) {
                 Button {
                     showReplace.toggle()
                     if !showReplace { findFocused = true }
                 } label: {
                     Image(systemName: showReplace ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.55))
-                        .frame(width: 16, height: 28)
+                        .frame(width: 14, height: 22)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -73,8 +82,9 @@ struct NotchFindReplaceBar: View {
                 .accessibilityAddTraits(showReplace ? .isSelected : [])
                 TextField(strings.find, text: $find)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
                     .focused($findFocused)
+                    .frame(minWidth: 70)
                     .onSubmit { step(backwards: NSEvent.modifierFlags.contains(.shift)) }
                     .onExitCommand(perform: onClose)
                     // Up and Down step through the matches like the buttons do;
@@ -89,24 +99,25 @@ struct NotchFindReplaceBar: View {
                     }
                     .accessibilityLabel(strings.find)
                 Text(statusText)
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 10))
                     .foregroundStyle(statusIsError ? Color.orange : .white.opacity(0.6))
                     .lineLimit(1)
-                NotchIconButton(symbol: "chevron.up", title: strings.previous) { step(backwards: true) }
-                NotchIconButton(symbol: "chevron.down", title: strings.next) { step(backwards: false) }
-                NotchIconButton(symbol: "textformat", title: strings.matchCase, selected: caseSensitive) {
+                NotchIconButton(symbol: "chevron.up", title: strings.previous, size: 22) { step(backwards: true) }
+                NotchIconButton(symbol: "chevron.down", title: strings.next, size: 22) { step(backwards: false) }
+                NotchIconButton(symbol: "textformat", title: strings.matchCase, selected: caseSensitive, size: 22) {
                     caseSensitive.toggle()
                 }
                 RegexToggle(title: strings.regex, isOn: $isRegex)
             }
             if showReplace {
-                HStack(spacing: 6) {
+                HStack(spacing: 4) {
                     Image(systemName: "arrow.turn.down.right")
+                        .font(.system(size: 9))
                         .foregroundStyle(.secondary)
-                        .frame(width: 16)
+                        .frame(width: 14)
                     TextField(strings.replace, text: $replacement)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 12, design: .monospaced))
+                        .font(.system(size: 11, design: .monospaced))
                         .onSubmit(replaceOne)
                         .onExitCommand(perform: onClose)
                         .accessibilityLabel(strings.replace)
@@ -115,9 +126,15 @@ struct NotchFindReplaceBar: View {
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .modifier(NotchControlSurface(cornerRadius: 14))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        // Nearly opaque black under the glass, like the island, so the text
+        // never shows through the bar.
+        .background(Color.black.opacity(0.97), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .modifier(NotchControlSurface(cornerRadius: 11))
+        // The grey of a selected tab.
+        .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous)
+            .strokeBorder(.white.opacity(0.14), lineWidth: 1))
         .onAppear {
             prefillFromSelection()
             focusFindField()
@@ -236,7 +253,7 @@ struct NotchFindReplaceBar: View {
     /// An icon button like the ones in the search row; the words are the
     /// tooltip and the accessibility label.
     private func replaceButton(_ symbol: String, title: String, action: @escaping () -> Void) -> some View {
-        NotchIconButton(symbol: symbol, title: title, action: action)
+        NotchIconButton(symbol: symbol, title: title, size: 22, action: action)
             .disabled(find.isEmpty)
             .opacity(find.isEmpty ? 0.4 : 1)
     }
@@ -268,14 +285,14 @@ private struct RegexToggle: View {
     var body: some View {
         Button { isOn.toggle() } label: {
             Text(".*")
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
                 .foregroundStyle(isOn ? .white : .white.opacity(0.55))
-                .frame(width: 28, height: 28)
+                .frame(width: 22, height: 22)
                 .background(.white.opacity(isOn ? 0.12 : 0),
-                            in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                            in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
-        .buttonStyle(NotchButtonStyle(cornerRadius: 9))
+        .buttonStyle(NotchButtonStyle(cornerRadius: 7))
         .help(title)
         .accessibilityLabel(title)
         .accessibilityAddTraits(isOn ? .isSelected : [])

@@ -71,6 +71,11 @@ struct PlainTextEditor: NSViewRepresentable {
         let spans: (String) -> [(range: NSRange, color: NSColor)]
     }
     var highlighting: Highlighting?
+    /// Room kept above the text, inside the scroll view, for something floating
+    /// over it (a find bar). The text starts below it when scrolled to the top
+    /// and scrolls up under it, and the text does not move when this changes
+    /// unless it was at the top.
+    var topContentInset: CGFloat = 0
     /// Handed the text view once, for callers that need to reach it later.
     var onCreate: ((NSTextView) -> Void)?
 
@@ -80,6 +85,7 @@ struct PlainTextEditor: NSViewRepresentable {
          textColor: NSColor? = nil,
          textContainerInset: NSSize? = nil,
          usesFindBar: Bool = false,
+         topContentInset: CGFloat = 0,
          ownsUndoManager: Bool = false,
          highlighting: Highlighting? = nil,
          onCreate: ((NSTextView) -> Void)? = nil) {
@@ -89,6 +95,7 @@ struct PlainTextEditor: NSViewRepresentable {
         self.textColor = textColor
         self.textContainerInset = textContainerInset
         self.usesFindBar = usesFindBar
+        self.topContentInset = topContentInset
         self.ownsUndoManager = ownsUndoManager
         self.highlighting = highlighting
         self.onCreate = onCreate
@@ -100,6 +107,7 @@ struct PlainTextEditor: NSViewRepresentable {
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
         guard let textView = scroll.documentView as? NSTextView else { return scroll }
+        applyTopContentInset(to: scroll)
         textView.drawsBackground = false
         textView.font = .systemFont(ofSize: fontSize)
         textView.textContainer?.lineFragmentPadding = Self.lineFragmentPadding
@@ -143,6 +151,7 @@ struct PlainTextEditor: NSViewRepresentable {
         if textView.font?.pointSize != fontSize {
             textView.font = .systemFont(ofSize: fontSize)
         }
+        applyTopContentInset(to: nsView)
         let coordinator = context.coordinator
         let highlightChanged = coordinator.highlighting?.id != highlighting?.id
         coordinator.highlighting = highlighting
@@ -160,6 +169,24 @@ struct PlainTextEditor: NSViewRepresentable {
         // resurrect cleared text or throw a range exception.
         textView.undoManager?.removeAllActions()
         coordinator.applyHighlighting(to: textView)
+    }
+
+    /// The room above the text is the scroll view's own inset, so the text
+    /// can scroll up under whatever floats there. Only a view that is at the top
+    /// follows the change; one scrolled down keeps its text where it is.
+    private func applyTopContentInset(to scroll: NSScrollView) {
+        guard scroll.contentInsets.top != topContentInset || scroll.automaticallyAdjustsContentInsets else { return }
+        let clip = scroll.contentView
+        let old = scroll.contentInsets.top
+        let before = clip.bounds.origin
+        let wasAtTop = before.y <= -old + 0.5
+        scroll.automaticallyAdjustsContentInsets = false
+        scroll.contentInsets = NSEdgeInsets(top: topContentInset, left: 0, bottom: 0, right: 0)
+        // Changing the inset moves the scroll position along with it, which
+        // would push the text down. At the top that is wanted; anywhere else
+        // the position is put back so the text stays where it was.
+        clip.scroll(to: wasAtTop ? NSPoint(x: before.x, y: -topContentInset) : before)
+        scroll.reflectScrolledClipView(clip)
     }
 
     func makeCoordinator() -> Coordinator {

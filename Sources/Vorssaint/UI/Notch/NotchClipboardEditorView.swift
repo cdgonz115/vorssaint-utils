@@ -75,11 +75,6 @@ struct NotchClipboardEditorView: View {
                     .frame(height: Self.barHeight)
             }
 
-            if showFind {
-                NotchFindReplaceBar(textView: { editor.view }, text: model.draft,
-                                    showReplace: $showReplace, onClose: closeFind)
-            }
-
             editorSurface
 
             NotchEditorBottomBar(dataType: $model.dataType, showTools: $showTools,
@@ -191,6 +186,7 @@ struct NotchClipboardEditorView: View {
                             textColor: .white,
                             textContainerInset: Self.editorInset,
                             usesFindBar: false,
+                            topContentInset: topInset,
                             ownsUndoManager: true,
                             highlighting: formatSettings.highlighting(for: model.dataType.structured)) { view in
                 // Same point size as the editor's own font, so it does not put
@@ -207,9 +203,30 @@ struct NotchClipboardEditorView: View {
                 MarkdownPreview(blocks: ScratchpadSupport.markdownPreview(model.draft),
                                 baseSize: Self.fontSize)
             }
+            // Over the text, whatever the text view does with its layers.
+            findBar
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .zIndex(10)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .modifier(NotchControlSurface(cornerRadius: 12, interactive: false))
+    }
+
+    /// The find bar floats over the top right of the text, as in a code
+    /// editor, and the text gets room above it instead of shrinking.
+    @ViewBuilder
+    private var findBar: some View {
+        if showFind && !model.isPreviewing {
+            NotchFindReplaceBar(textView: { editor.view }, text: model.draft,
+                                showReplace: $showReplace, onClose: closeFind)
+                .frame(maxWidth: 420)
+                .padding(6)
+        }
+    }
+
+    /// Room above the text for the find bar while it is showing.
+    private var topInset: CGFloat {
+        showFind && !model.isPreviewing ? NotchFindReplaceBar.floatingHeight(showingReplace: showReplace) : 0
     }
 
     // MARK: - Actions

@@ -74,7 +74,6 @@ struct NotchScratchpadView: View {
                         markRow
                             .frame(height: 28)
                     }
-                    findBar
                     editorSurface
                     NotchEditorBottomBar(dataType: dataType,
                                          showTools: Binding(get: { pad.marksExpanded },
@@ -143,13 +142,22 @@ struct NotchScratchpadView: View {
         }
     }
 
+    /// The find bar floats over the top right of the text, as in a code
+    /// editor, and the text gets room above it instead of shrinking.
     @ViewBuilder
     private var findBar: some View {
         if showFind, !pad.isPreviewing {
             NotchFindReplaceBar(textView: { editor.view }, text: pad.text,
                                 showReplace: $showReplace, stepRequest: findStep,
                                 onClose: closeFind)
+                .frame(maxWidth: 420)
+                .padding(6)
         }
+    }
+
+    /// Room above the text for the find bar while it is showing.
+    private var topInset: CGFloat {
+        showFind && !pad.isPreviewing ? NotchFindReplaceBar.floatingHeight(showingReplace: showReplace) : 0
     }
 
     private var editorSurface: some View {
@@ -158,6 +166,7 @@ struct NotchScratchpadView: View {
                             textColor: .white,
                             textContainerInset: Self.editorInset,
                             usesFindBar: false,
+                            topContentInset: topInset,
                             ownsUndoManager: true,
                             highlighting: formatSettings.highlighting(for: currentType.structured)) { view in
                 view.insertionPointColor = .white
@@ -175,10 +184,14 @@ struct NotchScratchpadView: View {
                     .font(.system(size: textSize))
                     .foregroundStyle(.white.opacity(0.35))
                     .padding(.leading, Self.editorInset.width + PlainTextEditor.lineFragmentPadding)
-                    .padding(.top, Self.editorInset.height)
+                    .padding(.top, Self.editorInset.height + topInset)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
+            // Over the text, whatever the text view does with its layers.
+            findBar
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .zIndex(10)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .modifier(NotchControlSurface(cornerRadius: 12, interactive: false))
