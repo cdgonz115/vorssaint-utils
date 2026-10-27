@@ -66,6 +66,19 @@ enum TextToolsSupport {
         }
     }
 
+    /// The text laid out as one named format, indented or with its layout
+    /// whitespace removed. Nil when the text is not valid in that format, so a
+    /// caller that lets the person pick the format can say so rather than
+    /// guess another one.
+    static func render(_ text: String, as format: Format, minified: Bool) -> String? {
+        switch (format, minified) {
+        case (.json, false): return prettyPrintJSON(text)
+        case (.json, true): return minifyJSON(text)
+        case (.xml, false): return prettyPrintXML(text)
+        case (.xml, true): return minifyXML(text)
+        }
+    }
+
     // MARK: - JSON
 
     /// Validates first (strictly, see `JSONValidator`), then re-indents the
@@ -418,6 +431,20 @@ enum TextToolsSupport {
             let template = options.isRegex ? replacement : NSRegularExpression.escapedTemplate(for: replacement)
             let replaced = regex.stringByReplacingMatches(in: text, range: range, withTemplate: template)
             return ReplaceResult(text: replaced, count: count)
+        }
+    }
+
+    /// What the match at exactly `range` would be replaced with, or nil when
+    /// `range` is not a match (the selection is something else). It is how a
+    /// single Replace tells "replace this one" from "go to the next one". The
+    /// replacement follows the same rules as `replaceAll`, `$1` included.
+    static func replacement(in text: String, find: String, with replacement: String, at range: NSRange,
+                            options: ReplaceOptions = ReplaceOptions()) -> Result<String?, ReplaceFailure> {
+        expression(find: find, options: options).map { (regex: NSRegularExpression) -> String? in
+            let template = options.isRegex ? replacement : NSRegularExpression.escapedTemplate(for: replacement)
+            guard let match = regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
+                .first(where: { $0.range == range }) else { return nil }
+            return regex.replacementString(for: match, in: text, offset: 0, template: template)
         }
     }
 

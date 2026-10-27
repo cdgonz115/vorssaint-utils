@@ -42,6 +42,7 @@ enum ClipboardEditorTests {
         suite.run("clipboard editor live clipboard") { liveClipboard(suite) }
         suite.run("clipboard editor failures") { failures(suite) }
         suite.run("clipboard editor preferences") { preferences(suite) }
+        suite.run("clipboard editor types") { tabs(suite) }
     }
 
     private static func commit(_ model: ClipboardEditorModel,
@@ -144,6 +145,49 @@ enum ClipboardEditorTests {
         history.copyResult = true
         suite.expect(commit(model, history) == .committed(updatedHistory: true), "a retry succeeds")
         suite.expect(!model.hasChanges, "after a commit the editor has nothing pending")
+    }
+
+    private static func tabs(_ suite: TestSuite) {
+        let compact = #"{"a":1,"b":[1,2]}"#
+        let pretty = TextToolsSupport.prettyPrintJSON(compact) ?? ""
+        let entry = ClipboardHistoryEntry(text: compact)
+        let history = FakeHistory([entry])
+        let model = ClipboardEditorModel(original: compact, source: .entry(entry.id))
+
+        suite.expect(model.dataType == .text && !model.isPreviewing && !model.hasChanges,
+                     "the editor opens on Text, whatever the text looks like")
+        suite.expect(ClipboardEditorModel.laidOut(compact, as: .text, minified: false) == compact
+                        && ClipboardEditorModel.laidOut(compact, as: .markdown, minified: true) == compact,
+                     "Text and Markdown are never rewritten")
+        suite.expect(!pretty.isEmpty && ClipboardEditorModel.laidOut(compact, as: .json, minified: false) == pretty,
+                     "JSON is indented")
+        suite.expect(ClipboardEditorModel.laidOut(pretty, as: .json, minified: true) == compact,
+                     "and Minify makes it compact again")
+        suite.expect(ClipboardEditorModel.laidOut("not { json", as: .json, minified: false) == nil,
+                     "text that is not JSON is refused, so it can be left alone")
+        suite.expect(ClipboardEditorModel.laidOut("<a><b>1</b></a>", as: .xml, minified: false)?.contains("\n") == true,
+                     "XML is laid out on lines")
+        suite.expect(ClipboardEditorModel.laidOut("<a>", as: .xml, minified: false) == nil,
+                     "and broken XML is refused")
+
+        suite.expect(ClipboardEditorModel.DataType.allCases.map(\.fileExtension) == ["txt", "json", "xml", "md"],
+                     "each type is saved with its own extension")
+        suite.expect(ScratchpadSupport.exportFileName(title: "Notes", date: Date(timeIntervalSince1970: 0),
+                                                      fileExtension: "json").hasSuffix(".json")
+                        && ScratchpadSupport.exportFileName(title: "Notes", date: Date()).hasSuffix(".txt"),
+                     "the exported name takes the extension, and is .txt without one")
+
+        // Laying out in place is an edit of the draft like any other.
+        model.draft = pretty
+        suite.expect(model.hasChanges, "a laid-out draft is a change")
+        suite.expect(commit(model, history) == .committed(updatedHistory: true), "closing commits it")
+        suite.expect(history.entries.first?.text == pretty && history.copied.last?.text == pretty,
+                     "the draft is what lands in history and on the clipboard")
+        suite.expect(commit(model, history) == .unchanged, "a second close has nothing left to write")
+
+        model.draft = compact
+        model.draft = pretty
+        suite.expect(!model.hasChanges, "going back to the original text leaves nothing to write")
     }
 
     private static func preferences(_ suite: TestSuite) {

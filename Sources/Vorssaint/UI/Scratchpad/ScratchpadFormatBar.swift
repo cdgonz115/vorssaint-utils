@@ -24,6 +24,9 @@ struct ScratchpadFormatBar: View {
     /// The island edits through its own text view; the floating pad lets the
     /// service find the one belonging to its panel.
     var editor: NSTextView?
+    /// Where a pressed mark goes when it is not the scratchpad's. An editor
+    /// that is not the pad (the clipboard's) applies it itself.
+    var onApply: ((ScratchpadMark) -> Void)?
 
     @ObservedObject private var service = ScratchpadService.shared
     @ObservedObject private var l10n = L10n.shared
@@ -41,7 +44,9 @@ struct ScratchpadFormatBar: View {
     }
 
     private func markButton(_ mark: ScratchpadMark) -> some View {
-        Button { service.apply(mark, through: editor) } label: {
+        Button {
+            if let onApply { onApply(mark) } else { service.apply(mark, through: editor) }
+        } label: {
             Group {
                 // A letter where one says the thing better than any glyph: every
                 // symbol for a heading reads as font size instead.

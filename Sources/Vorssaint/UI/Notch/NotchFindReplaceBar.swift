@@ -24,6 +24,12 @@ struct NotchFindReplaceBar: View {
     /// Whether the replace row is showing. The owner holds it so a shortcut
     /// can show or hide it along with the bar.
     @Binding var showReplace: Bool
+    /// Whether the text can be changed. A read-only text (a preview) is only
+    /// searched: the replace row and its toggle are not there.
+    var allowsReplace = true
+    /// A request from outside to step to the next or previous match, as the
+    /// owner's Command-G does. A new serial is a new request.
+    var stepRequest: FindStepRequest?
     /// Esc inside either field: the owner puts the bar away.
     let onClose: () -> Void
 
@@ -51,27 +57,39 @@ struct NotchFindReplaceBar: View {
         let caseSensitive: Bool
     }
 
+    /// The room a floating bar takes, with the margin around it: what the
+    /// text above is moved down by. The rows are a fixed height, so this is
+    /// known without measuring the bar after it is up.
+    static func floatingHeight(showingReplace: Bool) -> CGFloat {
+        let row: CGFloat = 22
+        let bar = 4 + row + (showingReplace ? 3 + row : 0) + 4
+        return bar + 12
+    }
+
     var body: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 6) {
-                Button {
-                    showReplace.toggle()
-                    if !showReplace { findFocused = true }
-                } label: {
-                    Image(systemName: showReplace ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.55))
-                        .frame(width: 16, height: 28)
-                        .contentShape(Rectangle())
+        VStack(spacing: 3) {
+            HStack(spacing: 4) {
+                if allowsReplace {
+                    Button {
+                        showReplace.toggle()
+                        if !showReplace { findFocused = true }
+                    } label: {
+                        Image(systemName: showReplace ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .frame(width: 14, height: 22)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(strings.replace)
+                    .accessibilityLabel(strings.replace)
+                    .accessibilityAddTraits(showReplace ? .isSelected : [])
                 }
-                .buttonStyle(.plain)
-                .help(strings.replace)
-                .accessibilityLabel(strings.replace)
-                .accessibilityAddTraits(showReplace ? .isSelected : [])
                 TextField(strings.find, text: $find)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
                     .focused($findFocused)
+                    .frame(minWidth: 70)
                     .onSubmit { step(backwards: NSEvent.modifierFlags.contains(.shift)) }
                     .onExitCommand(perform: onClose)
                     // Up and Down step through the matches like the buttons do;
@@ -86,46 +104,49 @@ struct NotchFindReplaceBar: View {
                     }
                     .accessibilityLabel(strings.find)
                 Text(statusText)
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 10))
                     .foregroundStyle(statusIsError ? Color.orange : .white.opacity(0.6))
                     .lineLimit(1)
-                NotchIconButton(symbol: "chevron.up", title: strings.previous) { step(backwards: true) }
-                NotchIconButton(symbol: "chevron.down", title: strings.next) { step(backwards: false) }
-                NotchIconButton(symbol: "textformat", title: strings.matchCase, selected: caseSensitive) {
+                NotchIconButton(symbol: "chevron.up", title: strings.previous, size: 22) { step(backwards: true) }
+                NotchIconButton(symbol: "chevron.down", title: strings.next, size: 22) { step(backwards: false) }
+                NotchIconButton(symbol: "textformat", title: strings.matchCase, selected: caseSensitive, size: 22) {
                     caseSensitive.toggle()
                 }
                 RegexToggle(title: strings.regex, isOn: $isRegex)
             }
-            if showReplace {
-                HStack(spacing: 6) {
+            if showReplace && allowsReplace {
+                HStack(spacing: 4) {
                     Image(systemName: "arrow.turn.down.right")
+                        .font(.system(size: 9))
                         .foregroundStyle(.secondary)
-                        .frame(width: 16)
+                        .frame(width: 14)
                     TextField(strings.replace, text: $replacement)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 12, design: .monospaced))
-                        .onSubmit(replaceAll)
+                        .font(.system(size: 11, design: .monospaced))
+                        .onSubmit(replaceOne)
                         .onExitCommand(perform: onClose)
                         .accessibilityLabel(strings.replace)
-                    Button(action: replaceAll) {
-                        Text(strings.replaceAll)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.white.opacity(find.isEmpty ? 0.35 : 0.85))
-                            .padding(.horizontal, 10)
-                            .frame(height: 24)
-                            .background(.white.opacity(0.12), in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(find.isEmpty)
+                    replaceButton("arrowshape.turn.up.left", title: strings.replace, action: replaceOne)
+                    replaceButton("arrowshape.turn.up.left.2", title: strings.replaceAll, action: replaceAll)
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .modifier(NotchControlSurface(cornerRadius: 14))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        // Nearly opaque black under the glass, like the island, so the text
+        // never shows through the bar.
+        .background(Color.black.opacity(0.97), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .modifier(NotchControlSurface(cornerRadius: 11))
+        // The grey of a selected tab.
+        .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous)
+            .strokeBorder(.white.opacity(0.14), lineWidth: 1))
         .onAppear {
             prefillFromSelection()
             focusFindField()
+        }
+        .onChange(of: stepRequest) { _, request in
+            guard let request else { return }
+            step(backwards: request.backwards)
         }
         .onChange(of: find) { _, _ in replacedNote = nil }
         .onChange(of: isRegex) { _, _ in replacedNote = nil }
@@ -208,6 +229,40 @@ struct NotchFindReplaceBar: View {
         }
     }
 
+    /// Replaces the selected match and moves on to the next one. When the
+    /// selection is not a match yet, it only goes to the next match, so the
+    /// first press shows what is about to change.
+    private func replaceOne() {
+        guard !find.isEmpty, let view = textView() else { return }
+        let selection = view.selectedRange()
+        switch TextToolsSupport.replacement(in: view.string, find: find, with: replacement,
+                                            at: selection, options: options) {
+        case .success(let text?):
+            view.replaceText(in: selection, with: text)
+            replacedNote = nil
+            // The next match, if any; running out is not an error here.
+            let caret = view.selectedRange().location
+            if case .success(let range?) = TextToolsSupport.nextMatch(in: view.string, find: find, from: caret,
+                                                                      options: options) {
+                view.setSelectedRange(range)
+                view.scrollRangeToVisible(range)
+                if range.length > 0 { view.showFindIndicator(for: range) }
+            }
+        case .success(nil):
+            step(backwards: false)
+        case .failure:
+            NSSound.beep()
+        }
+    }
+
+    /// An icon button like the ones in the search row; the words are the
+    /// tooltip and the accessibility label.
+    private func replaceButton(_ symbol: String, title: String, action: @escaping () -> Void) -> some View {
+        NotchIconButton(symbol: symbol, title: title, size: 22, action: action)
+            .disabled(find.isEmpty)
+            .opacity(find.isEmpty ? 0.4 : 1)
+    }
+
     private func replaceAll() {
         guard !find.isEmpty, let view = textView() else { return }
         switch TextToolsSupport.replaceAll(in: view.string, find: find, with: replacement, options: options) {
@@ -220,6 +275,13 @@ struct NotchFindReplaceBar: View {
     }
 }
 
+/// One request to step through the matches. Equal requests are the same
+/// request, so the owner bumps `serial` to ask again.
+struct FindStepRequest: Equatable {
+    let serial: Int
+    let backwards: Bool
+}
+
 /// A `.*` button in the same square as the island's icon buttons.
 private struct RegexToggle: View {
     let title: String
@@ -228,14 +290,14 @@ private struct RegexToggle: View {
     var body: some View {
         Button { isOn.toggle() } label: {
             Text(".*")
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
                 .foregroundStyle(isOn ? .white : .white.opacity(0.55))
-                .frame(width: 28, height: 28)
+                .frame(width: 22, height: 22)
                 .background(.white.opacity(isOn ? 0.12 : 0),
-                            in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                            in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
-        .buttonStyle(NotchButtonStyle(cornerRadius: 9))
+        .buttonStyle(NotchButtonStyle(cornerRadius: 7))
         .help(title)
         .accessibilityLabel(title)
         .accessibilityAddTraits(isOn ? .isSelected : [])

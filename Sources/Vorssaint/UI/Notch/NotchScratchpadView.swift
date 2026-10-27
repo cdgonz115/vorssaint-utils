@@ -18,6 +18,14 @@ struct NotchScratchpadView: View {
     @State private var copied = false
     @State private var hoveredPadID: UUID?
     @State private var editor = EditorHandle()
+    @State private var preview = EditorHandle()
+    @State private var showFind = false
+    @State private var showReplace = false
+    @State private var findStep: FindStepRequest?
+    /// The type each pad's text is, as chosen under the editor, kept between
+    /// launches. Pads start on Text.
+    @State private var types: [String: String] = TextEditorTypeStore.load()
+    private var formatSettings = TextEditorFormatSettings()
     @AppStorage(DefaultsKey.scratchpadTextSize) private var storedTextSize = ScratchpadSupport.defaultTextSize
     private var text: ScratchpadFeatureStrings { FeatureStrings.scratchpad(l10n.language) }
     private var textSize: CGFloat { CGFloat(ScratchpadSupport.sanitizedTextSize(storedTextSize)) }
@@ -28,6 +36,22 @@ struct NotchScratchpadView: View {
     /// the editor.
     private final class EditorHandle {
         weak var view: NSTextView?
+    }
+
+    private var currentType: ClipboardEditorModel.DataType {
+        pad.selectedPadID
+            .flatMap { TextEditorTypeStore.rawType(for: $0, in: types) }
+            .flatMap(ClipboardEditorModel.DataType.init(rawValue:)) ?? .text
+    }
+
+    private var dataType: Binding<ClipboardEditorModel.DataType> {
+        Binding(get: { currentType },
+                set: { type in
+                    guard let id = pad.selectedPadID else { return }
+                    types = TextEditorTypeStore.updated(types, setting: type.rawValue, for: id,
+                                                        keeping: Set(pad.pads.map(\.id)))
+                    TextEditorTypeStore.save(types)
+                })
     }
 
     private var selectedPad: ScratchpadPad? { pad.pads.first { $0.id == pad.selectedPadID } }
@@ -45,57 +69,58 @@ struct NotchScratchpadView: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    ZStack(alignment: .topLeading) {
-                        PlainTextEditor(text: $pad.text, fontSize: textSize,
-                                        textColor: .white,
-                                        textContainerInset: Self.editorInset,
-                                        usesFindBar: true) { view in
-                            view.insertionPointColor = .white
-                            editor.view = view
-                            DispatchQueue.main.async { focusEditor() }
-                        }
-                        .opacity(pad.isPreviewing ? 0 : 1)
-                        .allowsHitTesting(!pad.isPreviewing)
-                        .accessibilityHidden(pad.isPreviewing)
-                        if pad.isPreviewing {
-                            MarkdownPreview(blocks: ScratchpadSupport.markdownPreview(pad.text),
-                                            baseSize: textSize)
-                        } else if pad.text.isEmpty {
-                            Text(text.placeholder)
-                                .font(.system(size: textSize))
-                                .foregroundStyle(.white.opacity(0.35))
-                                .padding(.leading, Self.editorInset.width + PlainTextEditor.lineFragmentPadding)
-                                .padding(.top, Self.editorInset.height)
-                                .allowsHitTesting(false)
-                                .accessibilityHidden(true)
-                        }
+                    // The writing tools get a row of their own above the text,
+                    // so the tabs are still there to change pad with. They are there whenever
+                    // Markdown is being edited.
+                    if currentType == .markdown && !pad.isPreviewing {
+                        markRow
+                            .frame(height: 28)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .modifier(NotchControlSurface(cornerRadius: 12, interactive: false))
+                    editorSurface
+                    NotchEditorBottomBar(dataType: dataType,
+                                         isPreviewing: pad.isPreviewing, isEmpty: pad.text.isEmpty,
+                                         textView: { editor.view }, onTogglePreview: pad.togglePreview)
                 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { loadFailed = !pad.loadForEmbedding() }
+        // Command-R is a button of its own: the island answers Command-F and
+        // Command-G itself (through the serial below) and never sees this one.
+        .background {
+            Button(action: toggleFindAndReplace) { EmptyView() }
+                .keyboardShortcut("r", modifiers: .command)
+                .opacity(0)
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+        }
+        // Leaving Markdown puts its tools and preview away.
+        .onChange(of: currentType) { _, type in
+            guard type != .markdown else { return }
+            if pad.isPreviewing { pad.togglePreview() }
+        }
+        .onAppear {
+            loadFailed = !pad.loadForEmbedding()
+            openMarkdownPreview()
+        }
         .onDisappear { pad.commitEdits() }
         .onChange(of: pad.selectedPadID) { _, _ in
-            DispatchQueue.main.async { focusEditor() }
+            DispatchQueue.main.async {
+                if !openMarkdownPreview() { focusEditor() }
+            }
         }
         .onChange(of: pad.isPreviewing) { _, previewing in
             guard let view = editor.view else { return }
             if previewing {
-                pad.hideFindBar(in: view)
-                if view.window?.firstResponder === view || PlainTextEditor.findBarHasKeyboard(in: view.window) {
+                // A preview is searched but not replaced in.
+                showReplace = false
+                if view.window?.firstResponder === view {
                     view.window?.makeFirstResponder(nil)
                 }
             } else {
                 DispatchQueue.main.async {
-                    // Preview closed the bar and took the keyboard, so a bar
-                    // up now was opened by Command-F and a focused text was
-                    // given the keyboard by Command-G, both on their way out
-                    // of preview. Either keeps its focus and the match.
-                    guard view.enclosingScrollView?.isFindBarVisible != true,
-                          view.window?.firstResponder !== view else { return }
+                    // Preview took the keyboard, so a text without it now was
+                    // not given it by Command-F on its way out of preview.
+                    guard !showFind, view.window?.firstResponder !== view else { return }
                     focusEditor()
                 }
             }
@@ -105,7 +130,7 @@ struct NotchScratchpadView: View {
             requestClose(selectedPad)
         }
         .onChange(of: service.scratchpadFindSerial) { _, _ in
-            pad.performFind(service.scratchpadFindAction, in: editor.view)
+            handleFind(service.scratchpadFindAction)
         }
         .task(id: copied) {
             guard copied else { return }
@@ -115,23 +140,64 @@ struct NotchScratchpadView: View {
         }
     }
 
-    private var tabStrip: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal) {
-                HStack(spacing: 4) {
-                    ForEach(pad.pads) { entry in tab(entry).id(entry.id) }
-                }
-            }
-            .scrollIndicators(.hidden)
-            .onAppear {
-                guard let selected = pad.selectedPadID else { return }
-                proxy.scrollTo(selected, anchor: .center)
-            }
-            .onChange(of: pad.selectedPadID) { _, selected in
-                guard let selected else { return }
-                withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(selected, anchor: .center) }
-            }
+    /// The find bar floats over the top right of the text, as in a code
+    /// editor, and the text gets room above it instead of shrinking.
+    @ViewBuilder
+    private var findBar: some View {
+        if showFind {
+            NotchFindReplaceBar(textView: { pad.isPreviewing ? preview.view : editor.view },
+                                text: pad.isPreviewing ? (preview.view?.string ?? "") : pad.text,
+                                showReplace: $showReplace, allowsReplace: !pad.isPreviewing,
+                                stepRequest: findStep, onClose: closeFind)
+                .frame(maxWidth: 420)
+                .padding(6)
         }
+    }
+
+    /// Room above the text for the find bar while it is showing.
+    private var topInset: CGFloat {
+        showFind ? NotchFindReplaceBar.floatingHeight(showingReplace: showReplace && !pad.isPreviewing) : 0
+    }
+
+    private var editorSurface: some View {
+        ZStack(alignment: .topLeading) {
+            PlainTextEditor(text: $pad.text, fontSize: textSize,
+                            textColor: .white,
+                            textContainerInset: Self.editorInset,
+                            usesFindBar: false,
+                            topContentInset: topInset,
+                            ownsUndoManager: true,
+                            highlighting: formatSettings.highlighting(for: currentType.structured)) { view in
+                view.insertionPointColor = .white
+                editor.view = view
+                DispatchQueue.main.async { focusEditor() }
+            }
+            .opacity(pad.isPreviewing ? 0 : 1)
+            .allowsHitTesting(!pad.isPreviewing)
+            .accessibilityHidden(pad.isPreviewing)
+            if pad.isPreviewing {
+                MarkdownPreview(blocks: ScratchpadSupport.markdownPreview(pad.text),
+                                baseSize: textSize, topContentInset: topInset) { preview.view = $0 }
+            } else if pad.text.isEmpty {
+                Text(text.placeholder)
+                    .font(.system(size: textSize))
+                    .foregroundStyle(.white.opacity(0.35))
+                    .padding(.leading, Self.editorInset.width + PlainTextEditor.lineFragmentPadding)
+                    .padding(.top, Self.editorInset.height + topInset)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+            // Over the text, whatever the text view does with its layers.
+            findBar
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .zIndex(10)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .modifier(NotchControlSurface(cornerRadius: 12, interactive: false))
+    }
+
+    private var tabStrip: some View {
+        NotchChipStrip(items: pad.pads, selectedID: pad.selectedPadID) { tab($0) }
     }
 
     private var markRow: some View {
@@ -140,20 +206,7 @@ struct NotchScratchpadView: View {
 
     private var toolbar: some View {
         HStack(spacing: 4) {
-            // The island has one row to spend. The marks take the tab strip's
-            // place while they are up rather than squeezing in beside it, and
-            // the chip stays put so the same click puts the tabs back.
-            if pad.marksExpanded {
-                markRow
-            } else {
-                tabStrip
-            }
-            NotchIconButton(symbol: "textformat",
-                            title: text.formatMarks,
-                            selected: pad.marksExpanded) {
-                withAnimation(.easeOut(duration: 0.15)) { pad.toggleMarks() }
-            }
-            .disabled(pad.isPreviewing)
+            tabStrip
             NotchIconButton(symbol: "plus",
                             title: pad.canCreatePad
                                 ? text.newPad
@@ -161,10 +214,6 @@ struct NotchScratchpadView: View {
                 pad.createPad(defaultName: text.pageTitle)
             }
             .disabled(!pad.canCreatePad)
-            NotchIconButton(symbol: pad.isPreviewing ? "pencil" : "eye",
-                            title: pad.isPreviewing ? text.editText : text.previewFormatting,
-                            selected: pad.isPreviewing, action: pad.togglePreview)
-                .disabled(pad.text.isEmpty)
             NotchIconButton(symbol: copied ? "checkmark" : "doc.on.doc", title: copied ? text.copied : text.copyAll) {
                 pad.copyAll()
                 copied = true
@@ -179,8 +228,10 @@ struct NotchScratchpadView: View {
                 }
                 Button(text.exportAction) {
                     if let window = service.presentationWindow {
-                        pad.exportText(suggestedName: ScratchpadSupport.exportFileName(title: pad.selectedPadName, date: Date()),
-                                       from: window)
+                        let ext = currentType.fileExtension
+                        pad.exportText(suggestedName: ScratchpadSupport.exportFileName(title: pad.selectedPadName, date: Date(),
+                                                                                       fileExtension: ext),
+                                       fileExtension: ext, from: window)
                     }
                 }
                 .disabled(pad.text.isEmpty)
@@ -245,6 +296,73 @@ struct NotchScratchpadView: View {
         }
         .accessibilityAddTraits(selected ? .isSelected : [])
         .help(entry.name)
+    }
+
+    // MARK: - Find and text tools
+
+    /// What the island asked for with Command-F or Command-G. A pad in preview
+    /// is searched as it reads, without the replace row.
+    private func handleFind(_ action: NSTextFinder.Action) {
+        switch action {
+        case .showFindInterface:
+            toggleFind()
+        case .nextMatch, .previousMatch:
+            if showFind {
+                findStep = FindStepRequest(serial: (findStep?.serial ?? 0) + 1,
+                                           backwards: action == .previousMatch)
+            } else {
+                showFind = true
+            }
+        default:
+            break
+        }
+    }
+
+    /// Command-F: the find row, then back out one step at a time. With the
+    /// replace row showing it only puts that away; the next press closes the bar.
+    private func toggleFind() {
+        if !showFind {
+            showFind = true
+        } else if showReplace {
+            showReplace = false
+        } else {
+            closeFind()
+        }
+    }
+
+    /// Command-R: everything out, or everything away.
+    private func toggleFindAndReplace() {
+        // A preview has no replace row, so this is only the find bar.
+        if pad.isPreviewing {
+            if showFind { closeFind() } else { showFind = true }
+            return
+        }
+        if showFind && showReplace {
+            closeFind()
+        } else {
+            showFind = true
+            showReplace = true
+        }
+    }
+
+    /// Puts the bar away and gives the keyboard back to the text, leaving the
+    /// caret and the last match where they are.
+    private func closeFind() {
+        showFind = false
+        showReplace = false
+        DispatchQueue.main.async {
+            guard let view = editor.view, let window = view.window, window.isKeyWindow else { return }
+            window.makeFirstResponder(view)
+        }
+    }
+
+    /// A Markdown pad opens as its preview, the way it reads best. Returns
+    /// whether it did.
+    @discardableResult
+    private func openMarkdownPreview() -> Bool {
+        guard currentType == .markdown, !pad.isPreviewing, !pad.text.isEmpty else { return false }
+        pad.togglePreview()
+        return true
     }
 
     /// The caret lands at the end of the pad's text, as the floating pad

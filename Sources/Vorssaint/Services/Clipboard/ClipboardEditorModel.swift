@@ -46,10 +46,48 @@ final class ClipboardEditorModel: ObservableObject {
         case failed
     }
 
+    /// What the text is treated as. Choosing JSON or XML lays the text out as
+    /// that, and the editor does it as an edit that can be undone; Markdown
+    /// turns on the writing tools and the preview; Text leaves it alone.
+    enum DataType: String, CaseIterable {
+        case text, json, xml, markdown
+
+        /// The format the text tools parse, or nil for the types that are
+        /// not laid out by parsing.
+        /// The extension a file of this type is saved with.
+        var fileExtension: String {
+            switch self {
+            case .text: return "txt"
+            case .json: return "json"
+            case .xml: return "xml"
+            case .markdown: return "md"
+            }
+        }
+
+        var structured: TextToolsSupport.Format? {
+            switch self {
+            case .json: return .json
+            case .xml: return .xml
+            case .text, .markdown: return nil
+            }
+        }
+    }
+
+    /// `text` laid out as `type`, indented or compact, or nil when it is not
+    /// that type. Text and Markdown are returned as they are.
+    static func laidOut(_ text: String, as type: DataType, minified: Bool) -> String? {
+        guard let format = type.structured else { return text }
+        return TextToolsSupport.render(text, as: format, minified: minified)
+    }
+
     let source: Source
     /// What the text was when the editor opened, or as of the last commit.
     private(set) var original: String
+    /// The text being edited.
     @Published var draft: String
+    @Published var dataType: DataType = .text
+    /// Markdown shown as it reads, in place of the text.
+    @Published var isPreviewing = false
 
     private var isCommitting = false
 
@@ -71,13 +109,13 @@ final class ClipboardEditorModel: ObservableObject {
     func commit(to history: ClipboardEditorHistory, completion: @escaping (Outcome) -> Void) {
         // A commit already carrying this text is on its way.
         guard !isCommitting else { completion(.unchanged); return }
-        guard draft != original else { completion(.unchanged); return }
-        guard ClipboardHistoryEditing.canSave(original: original, draft: draft) else {
+        let text = draft
+        guard text != original else { completion(.unchanged); return }
+        guard ClipboardHistoryEditing.canSave(original: original, draft: text) else {
             completion(.notStorable)
             return
         }
 
-        let text = draft
         isCommitting = true
         let finish: (Outcome) -> Void = { [weak self] outcome in
             if let self {
