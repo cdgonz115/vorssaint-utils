@@ -28,7 +28,7 @@ struct NotchEditorBottomBar: View {
     /// A format action that found the text is not that type.
     @State private var hasProblem = false
     // Read here so a change in the text editor's settings shows up at once.
-    private var formatSettings = TextEditorFormatSettings()
+    private let formatSettings = TextEditorFormatSettings()
     private var text: ClipboardEditorStrings { FeatureStrings.clipboardEditor(l10n.language) }
     private var padText: ScratchpadFeatureStrings { FeatureStrings.scratchpad(l10n.language) }
     private static let barHeight: CGFloat = 28

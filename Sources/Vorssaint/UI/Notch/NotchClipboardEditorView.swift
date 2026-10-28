@@ -42,7 +42,7 @@ struct NotchClipboardEditorView: View {
     /// code editor: most searches are only searches.
     @State private var showReplace = false
     // Read here so a change in the text editor's settings shows up at once.
-    private var formatSettings = TextEditorFormatSettings()
+    private let formatSettings = TextEditorFormatSettings()
     private var text: ClipboardEditorStrings { FeatureStrings.clipboardEditor(l10n.language) }
 
     init(model: ClipboardEditorModel, onShowHistory: @escaping () -> Void,

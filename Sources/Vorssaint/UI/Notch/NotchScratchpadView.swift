@@ -25,7 +25,7 @@ struct NotchScratchpadView: View {
     /// The type each pad's text is, as chosen under the editor, kept between
     /// launches. Pads start on Text.
     @State private var types: [String: String] = TextEditorTypeStore.load()
-    private var formatSettings = TextEditorFormatSettings()
+    private let formatSettings = TextEditorFormatSettings()
     @AppStorage(DefaultsKey.scratchpadTextSize) private var storedTextSize = ScratchpadSupport.defaultTextSize
     private var text: ScratchpadFeatureStrings { FeatureStrings.scratchpad(l10n.language) }
     private var textSize: CGFloat { CGFloat(ScratchpadSupport.sanitizedTextSize(storedTextSize)) }
