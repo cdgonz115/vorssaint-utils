@@ -296,6 +296,7 @@ struct ScratchpadView: View {
                             continuesLists: true,
                             onCommandReturn: { service.togglePreview() },
                             isActive: !service.isPreviewing,
+                            ownsUndoManager: true,
                             onCreate: { ScratchpadService.shared.registerTextView($0) })
                 .opacity(service.isPreviewing ? 0 : 1)
                 .allowsHitTesting(!service.isPreviewing)
@@ -334,7 +335,7 @@ struct ScratchpadView: View {
         HStack(spacing: 12) {
             // Outside the disabled group below: an empty pad is exactly where
             // someone reaches for a heading, and the chip is how they find one.
-            footerButton("textformat", text.formatMarks,
+            footerButton("paragraphsign", text.formatMarks,
                          tint: service.marksExpanded ? .accentColor : nil) {
                 withAnimation(.easeOut(duration: 0.15)) { service.toggleMarks() }
             }
@@ -584,11 +585,16 @@ struct MarkdownPreview: NSViewRepresentable {
     /// Called with the text offset of the box whose checkbox is clicked; the
     /// owner edits the text, and the preview follows from it.
     var onToggleTask: ((Int) -> Void)?
+    /// Room above the text for a find bar floating over it.
+    var topContentInset: CGFloat = 0
+    /// Handed the text view once, so a find bar can search it.
+    var onCreate: ((NSTextView) -> Void)?
 
     func makeNSView(context: Context) -> NSScrollView {
         // The same text view `scrollableTextView()` makes, as the subclass that
         // answers a click on a checkbox and points its cursor at it.
         let scroll = NSScrollView()
+        PlainTextEditor.setTopContentInset(topContentInset, on: scroll)
         scroll.drawsBackground = false
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
@@ -610,10 +616,12 @@ struct MarkdownPreview: NSViewRepresentable {
         textView.textContainerInset = NSSize(width: 7, height: 2)
         textView.linkTextAttributes = [.foregroundColor: NSColor.controlAccentColor]
         context.coordinator.show(blocks, base: baseSize, taskStates: taskStates, in: textView)
+        onCreate?(textView)
         return scroll
     }
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
+        PlainTextEditor.setTopContentInset(topContentInset, on: nsView)
         guard let textView = nsView.documentView as? NSTextView else { return }
         context.coordinator.onToggleTask = onToggleTask
         (textView as? TaskPreviewTextView)?.onToggleTask = onToggleTask

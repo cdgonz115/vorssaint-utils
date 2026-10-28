@@ -82,7 +82,7 @@ enum NotchCompactTests {
         func hideFindBar(in editor: NSTextView) {}
         func togglePreview() { isPreviewing.toggle() }
         func show(allowsIsland: Bool = true) {}
-        func exportText(suggestedName: String, from window: NSWindow? = nil) {}
+        func exportText(suggestedName: String, fileExtension: String = "txt", from window: NSWindow? = nil) {}
     }
     struct NotchEmptyView: View {
         let symbol: String
@@ -134,6 +134,37 @@ enum NotchCompactTests {
         var cornerRadius: CGFloat = 6
         @ViewBuilder let label: () -> Label
         var body: some View { label() }
+    }
+    struct NotchChipStrip<Item: Identifiable, Chip: View>: View where Item.ID: Hashable {
+        let items: [Item]
+        let selectedID: Item.ID?
+        @ViewBuilder let chip: (Item) -> Chip
+        var body: some View { HStack { ForEach(items) { chip($0) } } }
+    }
+    struct NotchEditorBottomBar: View {
+        @Binding var dataType: ClipboardEditorModel.DataType
+        let isPreviewing: Bool
+        let isEmpty: Bool
+        let textView: () -> NSTextView?
+        let onTogglePreview: () -> Void
+        var body: some View { EmptyView() }
+    }
+    struct FindStepRequest: Equatable {
+        let serial: Int
+        let backwards: Bool
+    }
+    struct NotchFindReplaceBar: View {
+        static func floatingHeight(showingReplace: Bool) -> CGFloat { 0 }
+        let textView: () -> NSTextView?
+        let text: String
+        @Binding var showReplace: Bool
+        var allowsReplace = true
+        var stepRequest: FindStepRequest?
+        let onClose: () -> Void
+        var body: some View { Color.clear }
+    }
+    struct TextEditorFormatSettings {
+        func highlighting(for format: TextToolsSupport.Format?) -> PlainTextEditor.Highlighting? { nil }
     }
     struct ScratchpadFormatBar: View {
         enum Style { case pad, island }

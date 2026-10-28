@@ -362,6 +362,7 @@ private struct SnippetEditor: View {
                     }
                     PlainTextEditor(text: $snippet.replacement,
                                     selectedRange: $replacementSelection,
+                                    ownsUndoManager: true,
                                     onCreate: { replacementEditor.view = $0 })
                         .frame(minHeight: 76)
                         .overlay(

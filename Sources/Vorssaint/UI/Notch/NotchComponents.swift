@@ -145,22 +145,27 @@ struct NotchIconButton: View {
     let symbol: String
     let title: String
     var selected = false
+    /// The side of the square. The island's rows use the default; a control
+    /// floating over a text (the find bar) is smaller.
+    var size: CGFloat = 28
     let action: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var radius: CGFloat { size < 28 ? 7 : 9 }
 
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: size < 28 ? 10.5 : 12, weight: .medium))
                 .foregroundStyle(selected ? .white : .white.opacity(0.55))
                 .contentTransition(.symbolEffect(.replace))
                 .animation(reduceMotion ? nil : .smooth(duration: 0.24), value: symbol)
-                .frame(width: 28, height: 28)
+                .frame(width: size, height: size)
                 .background(.white.opacity(selected ? 0.12 : 0),
-                            in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                            in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
         }
-        .buttonStyle(NotchButtonStyle(cornerRadius: 9))
+        .buttonStyle(NotchButtonStyle(cornerRadius: radius))
         .help(title)
         .accessibilityLabel(title)
         .accessibilityAddTraits(selected ? .isSelected : [])

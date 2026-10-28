@@ -8,7 +8,7 @@ import Foundation
 /// below and the unit tests can reason about pages without pulling UI in.
 enum SettingsPage: Hashable {
     case general, features, energy, monitor
-    case mouse, switcher, dock, keyDebounce, superKey, cutPaste, autoQuit, quitProtection, cleaner, uninstaller, urlCleaner, homebrew, appUpdates, media, clipboard, windowLayout, shelf, quickTools, textSnippets, screenshot, radialMenu, commandBar, killProcess, portManager, notch, notchMascot
+    case mouse, switcher, dock, keyDebounce, superKey, cutPaste, autoQuit, quitProtection, cleaner, uninstaller, urlCleaner, homebrew, appUpdates, media, clipboard, windowLayout, shelf, quickTools, textSnippets, textEditor, screenshot, radialMenu, commandBar, killProcess, portManager, notch, notchMascot
     case shortcuts, advanced, about, releaseNotes, support
 }
 
@@ -42,6 +42,7 @@ enum SettingsSectionAnchor: String, CaseIterable, Hashable {
     case finderRename
     case clipboardHistory
     case pastePlain
+    case clipboardEditor
     case quickLauncher
     case quickToggles
     case quitApps
@@ -71,7 +72,7 @@ enum SettingsSectionAnchor: String, CaseIterable, Hashable {
         case .switcher: return .switcher
         case .dock, .dockClick, .spacesOrder: return .dock
         case .finderCutPaste, .finderRename: return .cutPaste
-        case .clipboardHistory, .pastePlain: return .clipboard
+        case .clipboardHistory, .pastePlain, .clipboardEditor: return .clipboard
         case .quickLauncher, .quickToggles, .quitApps, .micMute, .cameraPreview, .wallpaper, .scratchpad,
              .cleaningMode:
             return .quickTools
@@ -434,7 +435,7 @@ enum FeatureVisibilitySupport {
         case .notchMascot: return [.notchMascot]
         case .radialMenu: return [.radialMenu]
         case .commandBar: return [.commandBar]
-        case .general, .features, .shortcuts, .advanced, .about, .releaseNotes, .support:
+        case .general, .features, .shortcuts, .advanced, .about, .releaseNotes, .support, .textEditor:
             return []
         }
     }
