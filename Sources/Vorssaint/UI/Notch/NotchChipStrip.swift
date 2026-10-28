@@ -26,6 +26,9 @@ struct NotchChipStrip<Item: Identifiable, Chip: View>: View where Item.ID: Hasha
                 }
             }
             .scrollIndicators(.hidden)
+            // The chips are cut off by a rounded end, not a square one, when
+            // there are more than fit.
+            .clipShape(Capsule())
             .onAppear {
                 guard let selectedID else { return }
                 proxy.scrollTo(selectedID, anchor: .center)
@@ -35,5 +38,6 @@ struct NotchChipStrip<Item: Identifiable, Chip: View>: View where Item.ID: Hasha
                 withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(selected, anchor: .center) }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

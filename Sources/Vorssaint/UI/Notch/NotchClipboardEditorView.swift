@@ -44,6 +44,7 @@ struct NotchClipboardEditorView: View {
     // Read here so a change in the text editor's settings shows up at once.
     private let formatSettings = TextEditorFormatSettings()
     private var text: ClipboardEditorStrings { FeatureStrings.clipboardEditor(l10n.language) }
+    private var padText: ScratchpadFeatureStrings { FeatureStrings.scratchpad(l10n.language) }
 
     init(model: ClipboardEditorModel, onShowHistory: @escaping () -> Void,
          onSwitch: @escaping (ClipboardHistoryEntry) -> Void) {
@@ -66,9 +67,6 @@ struct NotchClipboardEditorView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            topBar
-                .frame(height: 24)
-
             // The writing tools are there whenever Markdown is being edited.
             if isMarkdown && !model.isPreviewing {
                 ScratchpadFormatBar(style: .island, editor: editor.view,
@@ -83,6 +81,9 @@ struct NotchClipboardEditorView: View {
                                  textView: { editor.view }, onTogglePreview: togglePreview)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // The way back and the pinned clipboards sit in the island's top row,
+        // as the scratchpad's pads do.
+        .notchBand(leading: { topBar })
         // A pinned clipboard opens as the type it was left on.
         .onAppear {
             guard let id = selectedPinnedID,
@@ -132,15 +133,43 @@ struct NotchClipboardEditorView: View {
 
     // MARK: - Bars
 
-    /// Condensed and without a background, like the scratchpad's: the way back
-    /// to the history and the pinned clipboards to switch between. Find is
-    /// the keyboard's: Command-F and Command-R.
+    /// In the island's top row: the way back to the history and a menu of the
+    /// pinned clipboards to switch to. Find is the keyboard's: Command-F and
+    /// Command-R.
     private var topBar: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             NotchIconButton(symbol: "list.bullet", title: text.defaultViewHistory) { commitAndLeave() }
-            NotchChipStrip(items: pinned, selectedID: selectedPinnedID) { chip($0) }
-                .frame(maxWidth: .infinity)
+            NotchMenuButton(title: text.defaultViewEditor, items: pinnedItems, cornerRadius: 9) {
+                NotchBandMenuLabel(title: currentName, symbol: selectedPinnedID == nil ? nil : "pin.fill")
+            }
+            .disabled(pinned.isEmpty)
         }
+    }
+
+    /// The pinned clipboards to switch to, the open one checked. Each reads
+    /// as its place among the pins and the start of its text.
+    private var pinnedItems: [NotchMenuItem] {
+        pinned.enumerated().map { index, entry in
+            NotchMenuItem(title: "\(index + 1)  \(preview(of: entry))", checked: entry.id == selectedPinnedID,
+                          symbol: "pin.fill") { switchTo(entry) }
+        }
+    }
+
+    /// What the menu's button reads: the pin's number, or the editor's own
+    /// name for what is on the clipboard now.
+    private var currentName: String {
+        guard let id = selectedPinnedID, let index = pinned.firstIndex(where: { $0.id == id }) else {
+            return text.defaultViewEditor
+        }
+        return "\(index + 1)"
+    }
+
+    /// The first line that has anything on it, short enough for a menu.
+    private func preview(of entry: ClipboardHistoryEntry) -> String {
+        let line = entry.text.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty } ?? "…"
+        return line.count > 28 ? String(line.prefix(28)) + "…" : line
     }
 
     private var pinned: [ClipboardHistoryEntry] {
@@ -150,31 +179,6 @@ struct NotchClipboardEditorView: View {
     private var selectedPinnedID: UUID? {
         if case .entry(let id) = model.source { return id }
         return nil
-    }
-
-    private func chip(_ entry: ClipboardHistoryEntry) -> some View {
-        let selected = entry.id == selectedPinnedID
-        return Button { switchTo(entry) } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "pin.fill")
-                    .font(.system(size: 8, weight: .semibold))
-                Text(number(of: entry))
-                    .font(.system(size: 11, weight: .medium))
-            }
-                .lineLimit(1)
-                .foregroundStyle(selected ? .white : .white.opacity(0.6))
-                .padding(.horizontal, 10)
-                .frame(height: 22)
-                .background(.white.opacity(selected ? 0.14 : 0.05), in: Capsule())
-                .contentShape(Capsule())
-        }
-        .buttonStyle(NotchButtonStyle(cornerRadius: 11, lifts: false))
-        .accessibilityAddTraits(selected ? .isSelected : [])
-    }
-
-    /// Pinned clipboards are numbered by their place among the pins.
-    private func number(of entry: ClipboardHistoryEntry) -> String {
-        "\((pinned.firstIndex { $0.id == entry.id } ?? 0) + 1)"
     }
 
     // MARK: - Text
@@ -201,7 +205,11 @@ struct NotchClipboardEditorView: View {
             .accessibilityHidden(model.isPreviewing)
             if model.isPreviewing {
                 MarkdownPreview(blocks: ScratchpadSupport.markdownPreview(model.draft),
-                                baseSize: Self.fontSize, topContentInset: topInset) { preview.view = $0 }
+                                baseSize: Self.fontSize,
+                                taskStates: (done: padText.taskDone, notDone: padText.taskNotDone),
+                                onToggleTask: toggleTask,
+                                topContentInset: topInset,
+                                onCreate: { preview.view = $0 })
             }
             // Over the text, whatever the text view does with its layers.
             findBar
@@ -232,6 +240,18 @@ struct NotchClipboardEditorView: View {
     }
 
     // MARK: - Actions
+
+    /// A checkbox clicked in the preview flips its box through the text view,
+    /// as one edit that undo takes back, the way the scratchpad does.
+    private func toggleTask(box: Int) {
+        guard let view = editor.view else { return }
+        if view.hasMarkedText() { view.unmarkText() }
+        guard let edit = ScratchpadSupport.taskToggleEdit(box: box, in: view.string) else { return }
+        view.breakUndoCoalescing()
+        guard view.shouldChangeText(in: edit.range, replacementString: edit.replacement) else { return }
+        view.replaceCharacters(in: edit.range, with: edit.replacement)
+        view.didChangeText()
+    }
 
     private func togglePreview() {
         flushComposition()
