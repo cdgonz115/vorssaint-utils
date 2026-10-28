@@ -143,7 +143,7 @@ def main():
           + declaration("Sources/Vorssaint/Services/Switcher/WindowPreviewProvider.swift",
                         "    static func captureViaWindowServer(")
           + "}\n")
-    write("ScratchpadExport.swift", "import AppKit\nimport Foundation\n"
+    write("ScratchpadExport.swift", "import AppKit\nimport Foundation\nimport UniformTypeIdentifiers\n"
           + "extension ScratchpadExportContract {\nfinal class Service: Fixture {\n"
           + declaration("Sources/Vorssaint/Services/QuickTools/ScratchpadService.swift",
                         "    func exportText(")

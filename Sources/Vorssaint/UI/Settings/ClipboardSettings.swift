@@ -26,10 +26,19 @@ struct ClipboardSettings: View {
     @AppStorage(DefaultsKey.clipboardAutoClearOnSleep) private var autoClearOnSleep = false
     @AppStorage(DefaultsKey.clipboardAutoClearOnDisplaySleep) private var autoClearOnDisplaySleep = false
     @AppStorage(DefaultsKey.clipboardAutoClearOnScreenLock) private var autoClearOnScreenLock = false
+    @AppStorage(DefaultsKey.clipboardEditorEnabled) private var editorEnabled = true
+    @AppStorage(DefaultsKey.clipboardEditorDefaultView)
+    private var editorDefaultView = ClipboardOpenView.history.rawValue
+    @AppStorage(DefaultsKey.clipboardEditorNoticeView)
+    private var editorNoticeView = ClipboardOpenView.editor.rawValue
 
     private var text: ClipboardFeatureStrings {
         FeatureStrings.clipboard(l10n.language)
     }
+    
+    private var editorText: ClipboardEditorStrings {
+       FeatureStrings.clipboardEditor(l10n.language)
+   }
 
     var body: some View {
         Form {
@@ -86,6 +95,7 @@ struct ClipboardSettings: View {
                 }
 
                 clipboardAutoClearSection
+                clipboardEditorSection
             }
 
             if AppFeature.finderCutPaste.isAvailable {
@@ -220,6 +230,31 @@ struct ClipboardSettings: View {
         return formatter
     }()
 
+    /// Independent of the history switch above: the editor also works on the
+    /// text on the clipboard right now, with capture off.
+    private var clipboardEditorSection: some View {
+        Section {
+            Toggle(editorText.enable, isOn: $editorEnabled)
+            Text(editorText.caption)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Picker(editorText.defaultView, selection: $editorDefaultView) {
+                Text(editorText.defaultViewHistory).tag(ClipboardOpenView.history.rawValue)
+                Text(editorText.defaultViewEditor).tag(ClipboardOpenView.editor.rawValue)
+            }
+            .disabled(!editorEnabled)
+            Picker(editorText.noticeView, selection: $editorNoticeView) {
+                Text(editorText.defaultViewHistory).tag(ClipboardOpenView.history.rawValue)
+                Text(editorText.defaultViewEditor).tag(ClipboardOpenView.editor.rawValue)
+            }
+            .disabled(!editorEnabled)
+            Text(editorText.defaultViewCaption)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .settingsFormSectionAnchor(.clipboardEditor)
+    }
+    
     // Never disabled by the capture toggle, unlike the sections above it:
     // emptying the pasteboard is a security setting in its own right, and
     // someone who keeps no history is exactly who reaches for it.

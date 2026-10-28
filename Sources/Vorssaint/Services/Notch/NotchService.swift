@@ -125,6 +125,10 @@ final class NotchService: ObservableObject {
     private var hoverExitMonitors: [Any] = []
     private var hoverWork: DispatchWorkItem?
     private var noticeWork: DispatchWorkItem?
+    /// The view the "Copied" notice asked the clipboard page to open on, and
+    /// when. Stamped rather than a flag, so a click whose page never opened
+    /// cannot surprise a later visit.
+    private var clipboardOpenRequest: (view: ClipboardOpenView, at: Date)?
     private var departureWork: DispatchWorkItem?
     private var musicDepartureWork: DispatchWorkItem?
     private var presentedMusic: NotchCompactMusicSnapshot?
@@ -1742,8 +1746,21 @@ final class NotchService: ObservableObject {
         return true
     }
 
+    /// The view the clipboard page should open on when it is being opened from
+    /// the "Copied" notice, or nil when it was opened any other way. Reading
+    /// it clears it.
+    func takeClipboardOpenRequest() -> ClipboardOpenView? {
+        defer { clipboardOpenRequest = nil }
+        guard let request = clipboardOpenRequest,
+              Date().timeIntervalSince(request.at) < 3 else { return nil }
+        return request.view
+    }
+
     func activateNotice(_ selectedNotice: NotchNotice) {
         guard notice == selectedNotice else { return }
+        if selectedNotice.event == .clipboard {
+            clipboardOpenRequest = (ClipboardOpenView.forCopyNotice, Date())
+        }
         if let id = selectedNotice.notificationID {
             guard NotchNotificationService.shared.openingID == nil else { return }
             // The pointer stays where the banner was; like a click on the

@@ -8,7 +8,7 @@ import Foundation
 /// below and the unit tests can reason about pages without pulling UI in.
 enum SettingsPage: Hashable {
     case general, features, energy, monitor
-    case mouse, switcher, dock, keyDebounce, superKey, cutPaste, autoQuit, quitProtection, cleaner, uninstaller, urlCleaner, homebrew, appUpdates, media, clipboard, windowLayout, shelf, quickTools, textSnippets, screenshot, radialMenu, commandBar, killProcess, portManager, notch
+    case mouse, switcher, dock, keyDebounce, superKey, cutPaste, autoQuit, quitProtection, cleaner, uninstaller, urlCleaner, homebrew, appUpdates, media, clipboard, windowLayout, shelf, quickTools, textSnippets, textEditor, screenshot, radialMenu, commandBar, killProcess, portManager, notch
     case shortcuts, advanced, about, releaseNotes, support
 }
 
@@ -40,6 +40,7 @@ enum SettingsSectionAnchor: String, CaseIterable, Hashable {
     case finderRename
     case clipboardHistory
     case pastePlain
+    case clipboardEditor
     case quickLauncher
     case quickToggles
     case screenshot
@@ -68,7 +69,7 @@ enum SettingsSectionAnchor: String, CaseIterable, Hashable {
         case .switcher: return .switcher
         case .dock, .dockClick: return .dock
         case .finderCutPaste, .finderRename: return .cutPaste
-        case .clipboardHistory, .pastePlain: return .clipboard
+        case .clipboardHistory, .pastePlain, .clipboardEditor: return .clipboard
         case .quickLauncher, .quickToggles, .micMute, .cameraPreview, .wallpaper, .scratchpad, .cleaningMode:
             return .quickTools
         case .screenshot, .screenRecorder, .colorPicker, .screenOCR:
@@ -397,7 +398,7 @@ enum FeatureVisibilitySupport {
         case .notch: return [.notch, .notchCalendar, .notchNotifications, .notchGestures, .notchTimer, .notchAccessories, .notchLyrics, .notchQueue, .notchLiveEqualizer, .notchDownloads, .notchAgents]
         case .radialMenu: return [.radialMenu]
         case .commandBar: return [.commandBar]
-        case .general, .features, .shortcuts, .advanced, .about, .releaseNotes, .support:
+        case .general, .features, .shortcuts, .advanced, .about, .releaseNotes, .support, .textEditor:
             return []
         }
     }

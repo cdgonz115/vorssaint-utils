@@ -20,6 +20,8 @@ struct MetricsTests {
                 SystemMonitorCPUTests.run(suite)
             }),
             ("clipboard", { ClipboardFeatureTests.run(suite) }),
+            ("clipboard-editor", { ClipboardEditorTests.run(suite) }),
+            ("text-tools", { TextToolsTests.run(suite) }),
             ("pointer-input", {
                 PointerOnDisplayContract.run(suite)
                 PointerInputFeatureTests.run(suite)

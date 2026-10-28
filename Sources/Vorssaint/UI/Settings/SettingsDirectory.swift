@@ -153,6 +153,15 @@ enum SettingsDirectory {
         if BrightnessService.keyboardLightIsSupported {
             items.append(SettingsSearchSupport.keyboardBrightnessShortcutItem(language: language))
         }
+        // The editor is a section of the Clipboard page, not a feature of its
+        // own, so it has an anchor rather than an `AppFeature`.
+        let editor = FeatureStrings.clipboardEditor(language)
+        items.append(SettingsSearchItem(
+            id: .setting(.clipboardEditor),
+            destination: FeatureSettingsDestination(.clipboard, sectionAnchor: .clipboardEditor),
+            title: editor.enable, icon: "square.and.pencil",
+            keywords: [editor.defaultView, editor.noticeView, editor.format, editor.minify],
+            feature: .clipboardHistory))
         return items
     }
 
@@ -404,6 +413,13 @@ enum SettingsDirectory {
                                                  FeatureStrings.snippets(language).addButton,
                                                  FeatureStrings.snippets(language).soundPickerLabel,
                                                  FeatureStrings.snippets(language).soundToggle]),
+                SettingsDirectoryItem(page: .textEditor,
+                                      title: FeatureStrings.textEditor(language).pageTitle,
+                                      icon: "curlybraces",
+                                      keywords: ["JSON", "XML",
+                                                 FeatureStrings.textEditor(language).colors,
+                                                 FeatureStrings.clipboardEditor(language).format,
+                                                 FeatureStrings.clipboardEditor(language).minify]),
                 SettingsDirectoryItem(page: .radialMenu,
                                       title: FeatureStrings.radialMenu(language).pageTitle,
                                       icon: "circle.grid.cross",
