@@ -1,0 +1,227 @@
+//
+//  ClipboardEditorTests.swift
+//  Vorssaint
+//
+//  Created by Christian Gonzalez on 9/30/26.
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Vorssaint
+
+import Foundation
+
+/// Stands in for ClipboardHistoryService: records what the model asked for and
+/// lets a test make either step refuse.
+private final class FakeHistory: ClipboardEditorHistory {
+    var entries: [ClipboardHistoryEntry]
+    var updateAllowed = true
+    var copyResult = true
+    private(set) var updates: [(id: UUID, text: String)] = []
+    private(set) var copied: [ClipboardHistoryEntry] = []
+
+    init(_ entries: [ClipboardHistoryEntry]) {
+        self.entries = entries
+    }
+
+    func updateText(_ entry: ClipboardHistoryEntry, to draft: String) -> Bool {
+        updates.append((entry.id, draft))
+        guard updateAllowed, let index = entries.firstIndex(where: { $0.id == entry.id }) else { return false }
+        entries[index].text = draft
+        return true
+    }
+
+    func copy(_ entry: ClipboardHistoryEntry, completion: @escaping (Bool) -> Void) {
+        copied.append(entry)
+        completion(copyResult)
+    }
+}
+
+enum ClipboardEditorTests {
+    static func run(_ suite: TestSuite) {
+        suite.run("clipboard editor skips") { skips(suite) }
+        suite.run("clipboard editor history entry") { historyEntry(suite) }
+        suite.run("clipboard editor live clipboard") { liveClipboard(suite) }
+        suite.run("clipboard editor failures") { failures(suite) }
+        suite.run("clipboard editor preferences") { preferences(suite) }
+        suite.run("clipboard editor types") { tabs(suite) }
+    }
+
+    private static func commit(_ model: ClipboardEditorModel,
+                               _ history: ClipboardEditorHistory) -> ClipboardEditorModel.Outcome? {
+        var outcome: ClipboardEditorModel.Outcome?
+        model.commit(to: history) { outcome = $0 }
+        return outcome
+    }
+
+    private static func skips(_ suite: TestSuite) {
+        let entry = ClipboardHistoryEntry(text: "hello")
+        let history = FakeHistory([entry])
+        let model = ClipboardEditorModel(original: "hello", source: .entry(entry.id))
+
+        suite.expect(!model.hasChanges, "a fresh editor has no changes")
+        suite.expect(commit(model, history) == .unchanged, "closing an untouched editor changes nothing")
+
+        model.draft = "hello world"
+        suite.expect(model.hasChanges, "typing is a change")
+        model.draft = "hello"
+        suite.expect(commit(model, history) == .unchanged, "undoing every edit is the same as cancelling")
+
+        model.draft = "   \n"
+        suite.expect(commit(model, history) == .notStorable, "a blank draft is never written")
+        model.draft = String(repeating: "a", count: ClipboardHistoryEditing.maxCharacters + 1)
+        suite.expect(commit(model, history) == .notStorable, "a draft over the size limit is never written")
+
+        suite.expect(history.updates.isEmpty && history.copied.isEmpty,
+                     "none of those touched history or the clipboard")
+    }
+
+    private static func historyEntry(_ suite: TestSuite) {
+        var entry = ClipboardHistoryEntry(text: #"{"a":1}"#)
+        entry.pinnedAt = Date()
+        let other = ClipboardHistoryEntry(text: "other")
+        let history = FakeHistory([other, entry])
+        let model = ClipboardEditorModel(original: entry.text, source: .entry(entry.id))
+
+        model.draft = "{\n  \"a\": 1\n}"
+        suite.expect(commit(model, history) == .committed(updatedHistory: true), "an edited entry commits")
+        suite.expect(history.updates.count == 1 && history.updates.first?.id == entry.id,
+                     "the entry is updated in place")
+        suite.expect(history.entries.count == 2, "no entry is added or removed")
+        suite.expect(history.entries.first(where: { $0.id == entry.id })?.text == model.draft,
+                     "the history now holds the edited text")
+        suite.expect(history.copied.first?.text == model.draft, "the edited text, not the old text, is copied")
+        suite.expect(history.copied.first?.id == entry.id, "the copied entry is the edited one")
+        suite.expect(history.copied.first?.isPinned == true, "the pin survives the edit")
+
+        suite.expect(commit(model, history) == .unchanged && history.copied.count == 1,
+                     "a second close has nothing left to write")
+
+        // The entry vanished while the editor was open (deleted, or expired).
+        let gone = ClipboardHistoryEntry(text: "x")
+        let emptyHistory = FakeHistory([])
+        let orphan = ClipboardEditorModel(original: "x", source: .entry(gone.id))
+        orphan.draft = "y"
+        suite.expect(commit(orphan, emptyHistory) == .committed(updatedHistory: false),
+                     "a vanished entry falls back to a clipboard-only write")
+        suite.expect(emptyHistory.updates.isEmpty && emptyHistory.entries.isEmpty,
+                     "and never invents a history entry")
+    }
+
+    private static func liveClipboard(_ suite: TestSuite) {
+        let entry = ClipboardHistoryEntry(text: "raw")
+        let history = FakeHistory([entry])
+        let model = ClipboardEditorModel(original: "raw", source: .liveClipboard)
+        model.draft = "edited"
+        suite.expect(commit(model, history) == .committed(updatedHistory: true),
+                     "live text that is in history replaces that entry")
+        suite.expect(history.entries.first?.text == "edited", "the matching entry was edited in place")
+
+        // Never recorded: history off, a password manager, an excluded app.
+        let unrecorded = FakeHistory([ClipboardHistoryEntry(text: "something else")])
+        let model2 = ClipboardEditorModel(original: "not in history", source: .liveClipboard)
+        model2.draft = "changed"
+        suite.expect(commit(model2, unrecorded) == .committed(updatedHistory: false),
+                     "live text that is not in history only rewrites the clipboard")
+        suite.expect(unrecorded.updates.isEmpty, "history is not touched")
+        suite.expect(unrecorded.copied.map(\.text) == ["changed"], "the clipboard gets the edited text")
+        suite.expect(unrecorded.entries.count == 1, "no history entry is added")
+    }
+
+    private static func failures(_ suite: TestSuite) {
+        let entry = ClipboardHistoryEntry(text: "a")
+        let history = FakeHistory([entry])
+        let model = ClipboardEditorModel(original: "a", source: .entry(entry.id))
+        model.draft = "b"
+
+        history.updateAllowed = false
+        suite.expect(commit(model, history) == .failed, "a refused history update fails the commit")
+        suite.expect(history.copied.isEmpty, "a refused update never reaches the clipboard")
+        suite.expect(model.hasChanges, "the draft is kept after a failure")
+
+        history.updateAllowed = true
+        history.copyResult = false
+        suite.expect(commit(model, history) == .failed, "a refused copy fails the commit")
+        suite.expect(model.hasChanges, "the draft is still kept, so the commit can be retried")
+
+        history.copyResult = true
+        suite.expect(commit(model, history) == .committed(updatedHistory: true), "a retry succeeds")
+        suite.expect(!model.hasChanges, "after a commit the editor has nothing pending")
+    }
+
+    private static func tabs(_ suite: TestSuite) {
+        let compact = #"{"a":1,"b":[1,2]}"#
+        let pretty = TextToolsSupport.prettyPrintJSON(compact) ?? ""
+        let entry = ClipboardHistoryEntry(text: compact)
+        let history = FakeHistory([entry])
+        let model = ClipboardEditorModel(original: compact, source: .entry(entry.id))
+
+        suite.expect(model.dataType == .text && !model.isPreviewing && !model.hasChanges,
+                     "the editor opens on Text, whatever the text looks like")
+        suite.expect(ClipboardEditorModel.laidOut(compact, as: .text, minified: false) == compact
+                        && ClipboardEditorModel.laidOut(compact, as: .markdown, minified: true) == compact,
+                     "Text and Markdown are never rewritten")
+        suite.expect(!pretty.isEmpty && ClipboardEditorModel.laidOut(compact, as: .json, minified: false) == pretty,
+                     "JSON is indented")
+        suite.expect(ClipboardEditorModel.laidOut(pretty, as: .json, minified: true) == compact,
+                     "and Minify makes it compact again")
+        suite.expect(ClipboardEditorModel.laidOut("not { json", as: .json, minified: false) == nil,
+                     "text that is not JSON is refused, so it can be left alone")
+        suite.expect(ClipboardEditorModel.laidOut("<a><b>1</b></a>", as: .xml, minified: false)?.contains("\n") == true,
+                     "XML is laid out on lines")
+        suite.expect(ClipboardEditorModel.laidOut("<a>", as: .xml, minified: false) == nil,
+                     "and broken XML is refused")
+
+        suite.expect(ClipboardEditorModel.DataType.allCases.map(\.fileExtension) == ["txt", "json", "xml", "md"],
+                     "each type is saved with its own extension")
+        suite.expect(ScratchpadSupport.exportFileName(title: "Notes", date: Date(timeIntervalSince1970: 0),
+                                                      fileExtension: "json").hasSuffix(".json")
+                        && ScratchpadSupport.exportFileName(title: "Notes", date: Date()).hasSuffix(".txt"),
+                     "the exported name takes the extension, and is .txt without one")
+
+        // Laying out in place is an edit of the draft like any other.
+        model.draft = pretty
+        suite.expect(model.hasChanges, "a laid-out draft is a change")
+        suite.expect(commit(model, history) == .committed(updatedHistory: true), "closing commits it")
+        suite.expect(history.entries.first?.text == pretty && history.copied.last?.text == pretty,
+                     "the draft is what lands in history and on the clipboard")
+        suite.expect(commit(model, history) == .unchanged, "a second close has nothing left to write")
+
+        model.draft = compact
+        model.draft = pretty
+        suite.expect(!model.hasChanges, "going back to the original text leaves nothing to write")
+    }
+
+    private static func preferences(_ suite: TestSuite) {
+        suite.expect(ClipboardOpenView.resolve(stored: "editor", editorEnabled: true) == .editor,
+                     "the editor can be chosen as the opening view")
+        suite.expect(ClipboardOpenView.resolve(stored: "history", editorEnabled: true) == .history,
+                     "the history can be chosen as the opening view")
+        suite.expect(ClipboardOpenView.resolve(stored: "editor", editorEnabled: false) == .history,
+                     "with the editor switched off, the history opens whatever was chosen")
+        for unknown in [nil, "", "garbage", "Editor", "editor "] {
+            suite.expect(ClipboardOpenView.resolve(stored: unknown, editorEnabled: true) == .history,
+                         "an unknown stored value (\(unknown ?? "nil")) opens the history")
+        }
+
+        let registered = Defaults.registeredDefaults
+        suite.expect(registered[DefaultsKey.clipboardEditorEnabled] as? Bool == true,
+                     "the editor is on by default")
+        suite.expect(registered[DefaultsKey.clipboardEditorDefaultView] as? String
+                        == ClipboardOpenView.history.rawValue,
+                     "the clipboard still opens on the history by default, as it always has")
+
+        suite.expect(registered[DefaultsKey.clipboardEditorNoticeView] as? String
+                        == ClipboardOpenView.editor.rawValue,
+                     "clicking the Copied notice opens the editor by default")
+
+        let exported = SettingsBackupSupport.exportKeys()
+        suite.expect(exported.contains(DefaultsKey.clipboardEditorEnabled)
+                        && exported.contains(DefaultsKey.clipboardEditorDefaultView)
+                        && exported.contains(DefaultsKey.clipboardEditorNoticeView),
+                     "all three editor settings travel in a backup")
+        suite.expect(SettingsBackupSupport.valueLooksRight(DefaultsKey.clipboardEditorDefaultView, "editor")
+                        && SettingsBackupSupport.valueLooksRight(DefaultsKey.clipboardEditorNoticeView, "history"),
+                     "a restored opening view is accepted")
+        suite.expect(!SettingsBackupSupport.valueLooksRight(DefaultsKey.clipboardEditorEnabled, "yes"),
+                     "a restored switch of the wrong type is dropped")
+    }
+}

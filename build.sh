@@ -440,6 +440,13 @@ if (( TEST )); then
         Sources/Vorssaint/Services/DiskImageInstaller/DiskImageInstallerSupport.swift
         Sources/Vorssaint/UI/NonModalAlert.swift
         Sources/Vorssaint/Services/Clipboard/ClipboardHistorySupport.swift
+        Sources/Vorssaint/Services/Clipboard/ClipboardEditorModel.swift
+        Sources/Vorssaint/Services/Clipboard/ClipboardEditorPreferences.swift
+        Sources/Vorssaint/Core/ClipboardEditorStrings.swift
+        Sources/Vorssaint/Core/TextToolsStrings.swift
+        Sources/Vorssaint/Core/TextEditorStrings.swift
+        Sources/Vorssaint/Services/TextTools/TextEditorPreferences.swift
+        Sources/Vorssaint/Services/TextTools/TextEditorTypeStore.swift
         Sources/Vorssaint/Core/ColorValue.swift
         Sources/Vorssaint/Services/Clipboard/ClipboardAutoClearSupport.swift
         Sources/Vorssaint/Services/AutoQuit/AutoQuitSupport.swift
@@ -575,6 +582,9 @@ if (( TEST )); then
         Sources/Vorssaint/Services/Uninstall/UninstallerSupport.swift
         Sources/Vorssaint/Services/ManagedDownloads/WhatsAppDownloadSupport.swift
         Sources/Vorssaint/Core/SecureInputSupport.swift
+        Sources/Vorssaint/Services/TextTools/TextToolsSupport.swift
+        Sources/Vorssaint/Services/TextTools/SyntaxHighlightSupport.swift
+        Sources/Vorssaint/UI/TextViewEditing.swift
         Tests/*.swift
         build/generated-tests/*.swift
     )

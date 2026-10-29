@@ -22,6 +22,8 @@ struct NotchClipboardView: View {
     /// The card the arrow keys chose, the top result of a typed search, or
     /// the entry copied last; Return uses it the way a click would.
     @State private var highlightedID: UUID?
+    /// Set while the page shows the editor instead of the history.
+    @State private var editing: ClipboardEditorModel?
     @FocusState private var searching: Bool
     /// The search field shows only once it is wanted: the header's magnifier
     /// opens it, and so does typing. Hidden, it keeps the focus.
@@ -37,11 +39,13 @@ struct NotchClipboardView: View {
     /// The entry the arrow keys have rested on long enough to open, once they have moved.
     @State private var keyExpandedID: UUID?
     @State private var keysMoved = false
+    @AppStorage(DefaultsKey.clipboardEditorEnabled) private var editorEnabled = true
     @Environment(\.notchSettingsPreview) private var preview
     @Environment(\.notchGlassSurface) private var glassSurface
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var text: ClipboardFeatureStrings { FeatureStrings.clipboard(l10n.language) }
     private static let listSpace = "notch.clipboard.list"
+    private var editorText: ClipboardEditorStrings { FeatureStrings.clipboardEditor(l10n.language) }
 
     private var entries: [ClipboardHistoryEntry] {
         history.filteredEntries(matching: query).filter { !pinnedOnly || $0.isPinned }
@@ -61,6 +65,21 @@ struct NotchClipboardView: View {
     }
 
     var body: some View {
+        Group {
+            if let model = editing {
+                NotchClipboardEditorView(model: model, onShowHistory: { editing = nil },
+                                         onSwitch: { entry in
+                    editing = ClipboardEditorModel(original: entry.text, source: .entry(entry.id))
+                })
+                .id(ObjectIdentifier(model))
+            } else {
+                historyPage
+            }
+        }
+        .onAppear { openDefaultView() }
+    }
+
+    private var historyPage: some View {
         VStack(spacing: searchOpen ? NotchLayout.rowSpacing : 0) {
             searchField
             if !enabled, history.entries.isEmpty {
@@ -112,7 +131,14 @@ struct NotchClipboardView: View {
                 NotchIconButton(symbol: "magnifyingglass", title: text.search, action: service.requestClipboardSearch)
             }
         }, trailing: {
-            HStack(spacing: 6) { NotchClipboardHeaderActions(service: service) }
+            HStack(spacing: 6) {
+                if editorEnabled {
+                    NotchIconButton(symbol: "square.and.pencil", title: editorText.defaultViewEditor) {
+                        openLiveEditor()
+                    }
+                }
+                NotchClipboardHeaderActions(service: service)
+            }
         })
         .onChange(of: query) { _, query in queryChanged(query) }
         // Resting on an entry with the arrow keys opens it, as resting the pointer does.
@@ -459,6 +485,11 @@ struct NotchClipboardView: View {
                 if entry.kind == .image, AppFeature.screenshot.isAvailable {
                     NotchIconButton(symbol: "pencil", title: text.edit) { history.editImage(entry) }
                 }
+                if entry.kind == .text, editorEnabled {
+                    NotchIconButton(symbol: "pencil", title: text.edit) {
+                        editing = ClipboardEditorModel(original: entry.text, source: .entry(entry.id))
+                    }
+                }
                 NotchIconButton(symbol: copiedID == entry.id ? "checkmark" : "doc.on.doc",
                                 title: copiedID == entry.id ? text.copied : text.copy) { copy(entry) }
                 NotchIconButton(symbol: entry.isPinned ? "pin.fill" : "pin",
@@ -487,6 +518,24 @@ struct NotchClipboardView: View {
             .disabled(!canReorder || !history.canMove(entry, .down))
         Divider()
         Button(text.delete, role: .destructive) { remove(entry) }
+    }
+
+    /// The page opens on the view the user chose: the notice's own setting when
+    /// it was opened from the "Copied" notice, the general one otherwise.
+    private func openDefaultView() {
+        guard !preview, editing == nil else { return }
+        let view = service.takeClipboardOpenRequest() ?? ClipboardOpenView.current
+        guard view == .editor else { return }
+        openLiveEditor()
+    }
+
+    /// Opens the editor on what is on the clipboard now. When there is no text
+    /// to read (an image, a hidden secret, nothing) it opens empty, and
+    /// whatever is typed there becomes the clipboard when the editor closes.
+    private func openLiveEditor() {
+        ClipboardHistoryService.readLiveClipboardText { text in
+            editing = ClipboardEditorModel(original: text ?? "", source: .liveClipboard)
+        }
     }
 
     /// The highlighted row, or with no search the entry copied last.

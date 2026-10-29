@@ -63,6 +63,33 @@ struct PlainTextEditor: NSViewRepresentable {
     /// formatted reading covers it: it is then hidden, so its text cursor
     /// does not show over what is on top.
     var isActive = true
+    /// Gives this editor an undo history of its own, discarded with the editor.
+    /// By default a text view uses its window's undo manager, which every text
+    /// view in that window shares and which outlives them: an entry left by a
+    /// text view that has since been freed is still on that stack, and undoing
+    /// into it crashes. A view that is created and destroyed as pages change,
+    /// like the island's, should not share one.
+    var ownsUndoManager = false
+    /// Colors parts of the text: the ranges to color and the color of each,
+    /// asked for after every change. The text itself is untouched (colors are
+    /// attributes, which neither the binding nor undo ever sees), and
+    /// everything outside the ranges keeps the editor's text color.
+    ///
+    /// A struct rather than a bare closure, so a trailing closure at a call
+    /// site still means `onCreate`.
+    struct Highlighting {
+        /// Names what `spans` was built from. The text is colored again when
+        /// this changes without the text changing, as when a setting turns
+        /// colors on or off; a closure cannot be compared, so the caller says.
+        let id: String
+        let spans: (String) -> [(range: NSRange, color: NSColor)]
+    }
+    var highlighting: Highlighting?
+    /// Room kept above the text, inside the scroll view, for something floating
+    /// over it (a find bar). The text starts below it when scrolled to the top
+    /// and scrolls up under it, and the text does not move when this changes
+    /// unless it was at the top.
+    var topContentInset: CGFloat = 0
     /// Handed the text view once, for callers that need to reach it later.
     var onCreate: ((NSTextView) -> Void)?
 
@@ -76,6 +103,9 @@ struct PlainTextEditor: NSViewRepresentable {
          continuesLists: Bool = false,
          onCommandReturn: (() -> Void)? = nil,
          isActive: Bool = true,
+         topContentInset: CGFloat = 0,
+         ownsUndoManager: Bool = false,
+         highlighting: Highlighting? = nil,
          onCreate: ((NSTextView) -> Void)? = nil) {
         self._text = text
         self.fontSize = fontSize
@@ -87,6 +117,9 @@ struct PlainTextEditor: NSViewRepresentable {
         self.continuesLists = continuesLists
         self.onCommandReturn = onCommandReturn
         self.isActive = isActive
+        self.topContentInset = topContentInset
+        self.ownsUndoManager = ownsUndoManager
+        self.highlighting = highlighting
         self.onCreate = onCreate
     }
 
@@ -96,6 +129,7 @@ struct PlainTextEditor: NSViewRepresentable {
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
         guard let textView = scroll.documentView as? NSTextView else { return scroll }
+        Self.setTopContentInset(topContentInset, on: scroll)
         textView.drawsBackground = false
         textView.font = .systemFont(ofSize: fontSize)
         textView.textContainer?.lineFragmentPadding = Self.lineFragmentPadding
@@ -121,6 +155,9 @@ struct PlainTextEditor: NSViewRepresentable {
             textView.textContainerInset = textContainerInset
         }
         textView.string = text
+        context.coordinator.baseColor = textColor ?? .labelColor
+        context.coordinator.highlighting = highlighting
+        context.coordinator.applyHighlighting(to: textView)
         // Delegate last: assigning .string posts a selection notification
         // synchronously, and makeNSView runs inside SwiftUI's update pass,
         // where writing state is undefined behavior.
@@ -149,7 +186,14 @@ struct PlainTextEditor: NSViewRepresentable {
         if textView.font?.pointSize != fontSize {
             textView.font = .systemFont(ofSize: fontSize)
         }
-        guard textView.string != text, !textView.hasMarkedText() else { return }
+        Self.setTopContentInset(topContentInset, on: nsView)
+        let coordinator = context.coordinator
+        let highlightChanged = coordinator.highlighting?.id != highlighting?.id
+        coordinator.highlighting = highlighting
+        guard textView.string != text, !textView.hasMarkedText() else {
+            if highlightChanged { coordinator.applyHighlighting(to: textView) }
+            return
+        }
         // Setting .string posts a selection notification, and answering it
         // here would write state from inside a view update.
         context.coordinator.isApplyingExternalText = true
@@ -159,10 +203,30 @@ struct PlainTextEditor: NSViewRepresentable {
         // entries recorded against the old storage; replaying one would
         // resurrect cleared text or throw a range exception.
         textView.undoManager?.removeAllActions()
+        coordinator.applyHighlighting(to: textView)
+    }
+
+    /// Room kept above the content, inside the scroll view, for something
+    /// floating over it (a find bar). The content can scroll up under it. Only
+    /// a view that is at the top follows the change; one scrolled down keeps
+    /// its content where it is. A static member, so the preview shares it.
+    static func setTopContentInset(_ inset: CGFloat, on scroll: NSScrollView) {
+        guard scroll.contentInsets.top != inset || scroll.automaticallyAdjustsContentInsets else { return }
+        let clip = scroll.contentView
+        let old = scroll.contentInsets.top
+        let before = clip.bounds.origin
+        let wasAtTop = before.y <= -old + 0.5
+        scroll.automaticallyAdjustsContentInsets = false
+        scroll.contentInsets = NSEdgeInsets(top: inset, left: 0, bottom: 0, right: 0)
+        // Changing the inset moves the scroll position along with it, which
+        // would push the content down. At the top that is wanted; anywhere
+        // else the position is put back so the content stays where it was.
+        clip.scroll(to: wasAtTop ? NSPoint(x: before.x, y: -inset) : before)
+        scroll.reflectScrolledClipView(clip)
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, selectedRange: selectedRange)
+        Coordinator(text: $text, selectedRange: selectedRange, ownsUndoManager: ownsUndoManager)
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
@@ -174,10 +238,27 @@ struct PlainTextEditor: NSViewRepresentable {
         var onCommandReturn: (() -> Void)?
         private weak var textView: NSTextView?
         private var lineMoveMonitor: Any?
+        /// What the text is drawn in outside any colored range.
+        var baseColor: NSColor = .labelColor
+        var highlighting: PlainTextEditor.Highlighting?
+        /// Whether colors are on the text now, so turning them off puts the
+        /// base color back and an editor that never colors does no work.
+        private var isColored = false
+        /// Nil unless the editor asked for its own history. The coordinator
+        /// lives exactly as long as the editor, so the history goes with it.
+        private let ownUndoManager: UndoManager?
 
-        init(text: Binding<String>, selectedRange: Binding<Range<Int>?>?) {
+        init(text: Binding<String>, selectedRange: Binding<Range<Int>?>?, ownsUndoManager: Bool) {
             self.text = text
             self.selectedRange = selectedRange
+            self.ownUndoManager = ownsUndoManager ? UndoManager() : nil
+        }
+
+        /// NSTextView asks its delegate first. An editor that did not ask for
+        /// its own history is handed the window's, which is what it used before
+        /// this method existed.
+        func undoManager(for view: NSTextView) -> UndoManager? {
+            ownUndoManager ?? view.window?.undoManager
         }
 
         /// Option-Up/Down moves the current line (or every line a selection
@@ -295,6 +376,30 @@ struct PlainTextEditor: NSViewRepresentable {
             let current = textView.string
             if text.wrappedValue != current { text.wrappedValue = current }
             publishSelection(of: textView, in: current)
+            applyHighlighting(to: textView)
+        }
+
+        /// Colors the text as the highlighting says, or clears the colors.
+        /// Only attributes change, outside the editing path, so this is not an
+        /// edit: no change notification, nothing on the undo stack.
+        func applyHighlighting(to textView: NSTextView) {
+            guard let storage = textView.textStorage else { return }
+            guard let highlighting else {
+                if isColored {
+                    storage.addAttribute(.foregroundColor, value: baseColor,
+                                         range: NSRange(location: 0, length: storage.length))
+                    isColored = false
+                }
+                return
+            }
+            let length = storage.length
+            storage.beginEditing()
+            storage.addAttribute(.foregroundColor, value: baseColor, range: NSRange(location: 0, length: length))
+            for span in highlighting.spans(textView.string) where NSMaxRange(span.range) <= length {
+                storage.addAttribute(.foregroundColor, value: span.color, range: span.range)
+            }
+            storage.endEditing()
+            isColored = true
         }
 
         /// Publishes the caret only. Never writes the text binding: a caret

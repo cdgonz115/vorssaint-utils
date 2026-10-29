@@ -332,21 +332,7 @@ final class ScratchpadService: NSObject, ObservableObject, NSWindowDelegate {
     func apply(_ mark: ScratchpadMark, through editor: NSTextView? = nil) {
         guard !isPreviewing else { return }
         guard let textView = editor ?? textView.flatMap({ $0.window === panel ? $0 : nil }) else { return }
-        // A live input-method composition holds a marked range into the
-        // storage; editing around it leaves that range pointing at nothing.
-        if textView.hasMarkedText() { textView.unmarkText() }
-        // Clicking a button takes first responder away from the editor, and a
-        // selection set on a view that is not first responder does not show.
-        textView.window?.makeFirstResponder(textView)
-        let edit = ScratchpadSupport.edit(applying: mark,
-                                          to: textView.string,
-                                          selection: textView.selectedRange())
-        guard (textView.string as NSString).substring(with: edit.range) != edit.replacement else { return }
-        guard textView.shouldChangeText(in: edit.range, replacementString: edit.replacement) else { return }
-        textView.replaceCharacters(in: edit.range, with: edit.replacement)
-        textView.didChangeText()
-        textView.setSelectedRange(edit.selection)
-        textView.scrollRangeToVisible(edit.selection)
+        textView.applyMark(mark)
         flushSave()
     }
 
@@ -379,13 +365,15 @@ final class ScratchpadService: NSObject, ObservableObject, NSWindowDelegate {
     /// Activate for dialog input and return focus to the originating host.
     /// The island's dialog floats just above it: a sheet would move and
     /// reskin the borderless surface.
-    func exportText(suggestedName: String, from window: NSWindow? = nil) {
+    func exportText(suggestedName: String, fileExtension: String = "txt", from window: NSWindow? = nil) {
         guard !text.isEmpty, !modalInteractionActive, let padID = selectedPadID,
               let sourceWindow = window ?? panel, sourceWindow.isVisible else { return }
         modalInteractionActive = true
         flushSave()
         let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.plainText]
+        // The pad's type decides the extension, and the panel keeps to it
+        // rather than adding ".txt" to a ".json" name.
+        savePanel.allowedContentTypes = [UTType(filenameExtension: fileExtension) ?? .plainText]
         savePanel.canCreateDirectories = true
         savePanel.isExtensionHidden = false
         savePanel.nameFieldStringValue = suggestedName
